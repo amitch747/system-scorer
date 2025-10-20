@@ -1,73 +1,61 @@
 package main
 
 import (
-	"encoding/json"
+	_ "encoding/json"
 
-	"net/http"
 	"log"
+	"net/http"
+
+	"os/exec"
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-type Device struct {
-	ID int `json:"id"`
-	Mac string `json:"mac"`
-	Firmware string `json:"firmware"`
-}
-
 type metrics struct {
-	devices prometheus.Gauge
-	info *prometheus.GaugeVec
+	info         *prometheus.GaugeVec
+	userSessions prometheus.Gauge
 }
 
 func NewMetrics(reg prometheus.Registerer) *metrics {
 	m := &metrics{
-		devices: prometheus.NewGauge(prometheus.GaugeOpts{
-			Namespace: "system-scraper",
-			Name: "connected_devices",
-			Help: "Number of currently connected devices.",
-		}),
 		info: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "system-scraper",
-			Name: "info",
-			Help: "Info about env",
+			Name:      "info",
+			Help:      "Info about env",
 		},
 			[]string{"version"}),
+		userSessions: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "system-scraper",
+			Name:      "user_sessions",
+			Help:      "Count of user sessions.",
+		}),
 	}
-	reg.MustRegister(m.devices, m.info)
+	reg.MustRegister(m.info, m.userSessions)
 	return m
 }
 
-
-var dvs []Device
 var version string
 
 func init() {
 	version = "1.0.0"
-	dvs = []Device{
-		{ID: 1, Mac: "00:00:00:00:01", Firmware: "1.0.0"},
-		{ID: 2, Mac: "00:00:00:00:02", Firmware: "1.0.1"},
-		{ID: 3, Mac: "00:00:00:00:03", Firmware: "1.0.2"},
-	}
 }
 
 func main() {
 	reg := prometheus.NewRegistry()
 	m := NewMetrics(reg)
 
-	m.devices.Set(float64(len(dvs)))
 	m.info.With(prometheus.Labels{"version": version}).Set(1)
 
-	dMux := http.NewServeMux()
-	dMux.HandleFunc("/devices", getDevices)
+	sessionCount, err := getUserSessionCount()
+	if err == nil {
+		m.userSessions.Set(float64(sessionCount))
+	}
 
 	pMux := http.NewServeMux()
 	promHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{})
 	pMux.Handle("/metrics", promHandler)
-
-	go func() {
-		log.Fatal(http.ListenAndServe(":8080", dMux))
-	}()
 
 	go func() {
 		log.Fatal(http.ListenAndServe(":8081", pMux))
@@ -76,14 +64,13 @@ func main() {
 	select {}
 }
 
-
-func getDevices(w http.ResponseWriter, r *http.Request) {
-	b, err := json.Marshal(dvs)
+func getUserSessionCount() (int, error) {
+	cmd := exec.Command("who")
+	output, err := cmd.Output()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return 0, err
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(b)
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	return len(lines), nil
 }
