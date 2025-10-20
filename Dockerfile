@@ -7,7 +7,7 @@ COPY go.sum ./
 
 RUN go mod download && go mod verify
 
-COPY system-scraper/main.go ./
+COPY system-scraper/ ./
 
 RUN go build -o system-scraper main.go
 
