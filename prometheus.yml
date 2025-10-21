@@ -9,4 +9,4 @@ rule_files:
 scrape_configs:
 - job_name: system_scraper
   static_configs:
-  - targets: ["system_scraper:8081"]
+  - targets: ["172.17.0.1:8081"] 

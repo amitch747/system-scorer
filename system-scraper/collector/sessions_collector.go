@@ -9,31 +9,22 @@ import (
 
 // Needs to implement Describe() & Collect() methods
 type SessionScannerCollector struct {
-	// Descriptor for the metric (metadata)
-	sessionTotalDesc *prometheus.Desc
-}
-
-// Things to collect
-/*
-	- Total sessions
-	- Sessions per user
-	- jcpu
-*/
-
-type SessionInfo struct {
-	User    string
-	LoginAt string
-	Idle    string
-	Jcpu    string
-	Pcpu    string
+	sessionTotalDesc        *prometheus.Desc // Descriptors for the metric (metadata)
+	sessionCountPerUserDesc *prometheus.Desc
 }
 
 func NewSessionScannerCollector() *SessionScannerCollector {
 	return &SessionScannerCollector{
 		sessionTotalDesc: prometheus.NewDesc(
-			"sessionscanner_sessions_total",
+			"sessionscanner_session_total",
 			"Total number of sessions.",
 			nil,
+			nil,
+		),
+		sessionCountPerUserDesc: prometheus.NewDesc(
+			"sessionscanner_session_count_per_user",
+			"Number of active sessions per user.",
+			[]string{"username"},
 			nil,
 		),
 	}
@@ -41,9 +32,8 @@ func NewSessionScannerCollector() *SessionScannerCollector {
 
 // Prometheus will call this. Need to feed the info into the channel it will call with
 func (ssc SessionScannerCollector) Describe(ch chan<- *prometheus.Desc) {
-	// Calls Collector() to figure out what descriptors exist. Less efficient
-	//prometheus.DescribeByCollect(ssc, ch)
-	ch <- ssc.sessionTotalDesc
+	// Calls Collector() to figure out what descriptors exist
+	prometheus.DescribeByCollect(ssc, ch)
 }
 
 func (ssc SessionScannerCollector) Collect(ch chan<- prometheus.Metric) {
@@ -58,9 +48,25 @@ func (ssc SessionScannerCollector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(sessionTotal),
 	)
-	sessionCountPerUser := countSessionsPerUser(sessions)
-	println(sessionCountPerUser)
 
+	sessionCountPerUser := countSessionsPerUser(sessions)
+
+	for user, count := range sessionCountPerUser {
+		ch <- prometheus.MustNewConstMetric(
+			ssc.sessionCountPerUserDesc,
+			prometheus.GaugeValue,
+			float64(count),
+			user,
+		)
+	}
+}
+
+type SessionInfo struct {
+	User    string
+	LoginAt string
+	Idle    string
+	Jcpu    string
+	Pcpu    string
 }
 
 func parseWCommand() ([]SessionInfo, error) {
@@ -84,7 +90,6 @@ func parseWCommand() ([]SessionInfo, error) {
 			})
 		}
 	}
-
 	return sessions, nil
 }
 
@@ -98,18 +103,14 @@ func countSessionsPerUser(sessions []SessionInfo) map[string]int {
 	return m
 }
 
-// func countJCPUPerUser() {
+// func countJCPUPerUser(sessions []SessionInfo) map[string]int {
+// 	m := make(map[string]int)
+// 	for _, session := range sessions {
+// 		m[session.User] += session.
+// 	}
 
 // }
 
 // func countPCPUPerUser() {
-
-// }
-
-// func countIdlePerUser() {
-
-// }
-
-// func countDurationPerUser() {
 
 // }

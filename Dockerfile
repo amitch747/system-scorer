@@ -16,6 +16,7 @@ RUN go build -o system-scraper main.go
 
 FROM alpine:latest
 
+
 WORKDIR /app
 
 COPY --from=builder /app/system-scraper .
