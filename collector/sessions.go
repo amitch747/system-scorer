@@ -94,23 +94,9 @@ func parseWCommand() ([]SessionInfo, error) {
 }
 
 func countSessionsPerUser(sessions []SessionInfo) map[string]int {
-	// Count number of structs with same [0]
 	m := make(map[string]int)
 	for _, session := range sessions {
 		m[session.User]++
 	}
-
 	return m
 }
-
-// func countJCPUPerUser(sessions []SessionInfo) map[string]int {
-// 	m := make(map[string]int)
-// 	for _, session := range sessions {
-// 		m[session.User] += session.
-// 	}
-
-// }
-
-// func countPCPUPerUser() {
-
-// }
