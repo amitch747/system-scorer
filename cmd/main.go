@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/amitch747/prometheus-system-scraper/system-scraper/collector"
+	"github.com/amitch747/prometheus-system-scraper/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

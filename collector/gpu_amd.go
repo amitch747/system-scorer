@@ -44,3 +44,21 @@ func NewAMDGPUCollector() *AMDGPUCollector {
 		),
 	}
 }
+
+func (agc AMDGPUCollector) Describe(ch chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(agc, ch)
+}
+
+func (agc AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
+	// Collect busy
+
+	// Collect VRAM
+
+	// Collect clock greq
+
+	// Collect mem bandwidth
+
+	// Collect process count
+
+	// NEED TO RESEARCH THIS. WILL NOT BE EASY
+}
