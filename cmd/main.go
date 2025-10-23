@@ -16,6 +16,7 @@ func main() {
 	reg := prometheus.NewRegistry()
 	// Create new metrics and register
 	reg.MustRegister(collector.NewSessionScannerCollector())
+	reg.MustRegister(collector.NewCPUCollector())
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
