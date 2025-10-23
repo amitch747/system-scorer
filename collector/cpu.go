@@ -77,12 +77,12 @@ func readCPUTimes() (cpuTimes, error) {
 
 	// Wrap file in scanner
 	scanner := bufio.NewScanner(file)
+	var cpuT cpuTimes
 	// Read until there are no more lines
 	for scanner.Scan() {
 		// Seperate scanned line in a slice
 		fields := strings.Fields(scanner.Text())
 		if fields[0] == "cpu" {
-			var cpuT cpuTimes
 			// Convert each uint64 into a string
 			cpuT.user, _ = strconv.ParseUint(fields[1], 10, 64)
 			cpuT.nice, _ = strconv.ParseUint(fields[2], 10, 64)
@@ -98,14 +98,14 @@ func readCPUTimes() (cpuTimes, error) {
 	return cpuTimes{}, fmt.Errorf("cpu line not found")
 }
 
-func (cpuT cpuTimes) calcTotalCPUTime() uint64 {
+func (cpuT cpuTimes) CalcTotalCPUTime() uint64 {
 	return (cpuT.user + cpuT.nice + cpuT.system + cpuT.idle + cpuT.iowait + cpuT.irq + cpuT.softirq + cpuT.steal)
 }
 
 func calcCPUExecPercentage(prev, curr cpuTimes) float64 {
 	// First need total time passed
-	totalPrev := prev.calcTotalCPUTime()
-	totalCurr := curr.calcTotalCPUTime()
+	totalPrev := prev.CalcTotalCPUTime()
+	totalCurr := curr.CalcTotalCPUTime()
 
 	totalDelta := float64(totalCurr - totalPrev)
 	if totalDelta <= 0 {

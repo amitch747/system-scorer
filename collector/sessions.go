@@ -16,13 +16,13 @@ type SessionScannerCollector struct {
 func NewSessionScannerCollector() *SessionScannerCollector {
 	return &SessionScannerCollector{
 		sessionTotalDesc: prometheus.NewDesc(
-			"sessionscanner_session_total",
+			"syscraper_session_total",
 			"Total number of sessions.",
 			nil,
 			nil,
 		),
 		sessionCountPerUserDesc: prometheus.NewDesc(
-			"sessionscanner_session_count_per_user",
+			"syscraper_session_count_per_user",
 			"Number of active sessions per user.",
 			[]string{"username"},
 			nil,
