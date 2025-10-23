@@ -20,20 +20,20 @@ type cpuTimes struct {
 var prevCPUTimes cpuTimes
 
 type CPUCollector struct {
-	cpuCountDesc     *prometheus.Desc
-	cpuExecRatioDesc *prometheus.Desc
+	cpuCountDesc          *prometheus.Desc
+	cpuExecPercentageDesc *prometheus.Desc
 }
 
 func NewCPUCollector() *CPUCollector {
 	return &CPUCollector{
 		cpuCountDesc: prometheus.NewDesc(
-			"cpu_count",
+			"syscraper_cpu_count",
 			"Number of CPU cores",
 			nil,
 			nil,
 		),
-		cpuExecRatioDesc: prometheus.NewDesc(
-			"cpu_exec_percentage",
+		cpuExecPercentageDesc: prometheus.NewDesc(
+			"syscraper_cpu_exec_percentage",
 			"15s percentage of CPU time spent not in idle or iowait",
 			nil,
 			nil,
@@ -57,14 +57,14 @@ func (cc CPUCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		return
 	}
-	cpuExecRatio := calcCPUExecRatio(prevCPUTimes, currCPUTimes)
+	cpuExecPercentage := calcCPUExecPercentage(prevCPUTimes, currCPUTimes)
 	// Update for next scrape
 	prevCPUTimes = currCPUTimes
-	// Collect cpuExecRatio
+	// Collect cpuExecPercentage
 	ch <- prometheus.MustNewConstMetric(
-		cc.cpuExecRatioDesc,
+		cc.cpuExecPercentageDesc,
 		prometheus.GaugeValue,
-		float64(cpuExecRatio),
+		float64(cpuExecPercentage),
 	)
 }
 
@@ -102,7 +102,7 @@ func (cpuT cpuTimes) calcTotalCPUTime() uint64 {
 	return (cpuT.user + cpuT.nice + cpuT.system + cpuT.idle + cpuT.iowait + cpuT.irq + cpuT.softirq + cpuT.steal)
 }
 
-func calcCPUExecRatio(prev, curr cpuTimes) float64 {
+func calcCPUExecPercentage(prev, curr cpuTimes) float64 {
 	// First need total time passed
 	totalPrev := prev.calcTotalCPUTime()
 	totalCurr := curr.calcTotalCPUTime()
@@ -113,5 +113,5 @@ func calcCPUExecRatio(prev, curr cpuTimes) float64 {
 	}
 	// idleTime is idle AND iowait
 	idleTime := float64((curr.idle - prev.idle) + (curr.iowait - prev.iowait))
-	return (1 - idleTime/totalDelta)
+	return 100 * (1 - idleTime/totalDelta)
 }
