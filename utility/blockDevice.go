@@ -68,3 +68,17 @@ func GetBlockDeviceInfoMap() map[string]BlockDeviceInfo {
 	})
 	return deviceInfoMap
 }
+
+func MatchBaseDevice(diskName string, blockDeviceInfoMap map[string]BlockDeviceInfo) (string, bool) {
+	if _, ok := blockDeviceInfoMap[diskName]; ok {
+		return diskName, true
+	}
+
+	for base := range deviceInfoMap {
+		if strings.HasPrefix(diskName, base) {
+			return base, true
+		}
+	}
+
+	return "", false
+}
