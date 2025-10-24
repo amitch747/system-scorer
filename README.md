@@ -1,12 +1,9 @@
 # A Cluster Node System Metrics Prometheus Exporter
 
 
-### Build Command
-```
-go build -o system-scraper && sudo mv system-scraper /usr/local/bin/ && sudo systemctl restart system-scraper && sudo systemctl restart prometheus
-```
-
-### system-scraper.service 
+## Setup
+### Create systemd service
+`sudo nano /etc/systemd/system/system-scraper.service`
 ```
 [Unit]
 Description=System Scraper Exporter
@@ -26,3 +23,51 @@ User=root
 [Install]
 WantedBy=multi-user.target
 ```
+
+### Build binary and start service
+
+`go build -o cmd/system-scraper && sudo mv cmd/system-scraper /usr/local/bin/`
+
+`sudo systemctl restart system-scraper`
+
+
+## Viewing Metrics
+### Local
+`curl http://localhost:8081/metrics`
+
+### Prometheus
+- Update config
+```
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'system_scraper'
+    static_configs:
+      - targets: ['localhost:8081']
+```
+
+```
+sudo systemctl daemon-reload
+sudo systemctl restart prometheus
+sudo systemctl status prometheus
+```
+http://localhost:9090/classic/targets
+
+
+### Grafana
+
+```
+sudo apt update
+sudo apt install grafana
+
+sudo systemctl enable grafana-server
+sudo systemctl start grafana-server
+sudo systemctl status grafana-server
+```
+http://localhost:3000
+- Default credentials will be admin/admin
+- Go to Settings -> Data sources -> Add data source -> Prometheus
+- URL: http://localhost:9090
+- Click save and test
