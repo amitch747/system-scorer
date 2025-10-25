@@ -18,6 +18,7 @@ func main() {
 	reg.MustRegister(collector.NewSessionScannerCollector())
 	reg.MustRegister(collector.NewCPUCollector())
 	reg.MustRegister(collector.NewMemCollector())
+	reg.MustRegister(collector.NewIoCollector())
 
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))

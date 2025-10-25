@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/amitch747/prometheus-system-scraper/utility"
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,7 +20,6 @@ type diskStats struct {
 // keep a slice of previous diskStats
 var prevDiskStats []diskStats
 var scrape_interval = 15
-var diskInfoOnce sync.Once
 
 type ioCollector struct {
 	maxIOTimeDesc     *prometheus.Desc
@@ -33,6 +31,12 @@ func NewIoCollector() *ioCollector {
 		maxIOTimeDesc: prometheus.NewDesc(
 			"syscraper_io_time",
 			"15s interval of time spent doing IO",
+			nil,
+			nil,
+		),
+		maxIOPressureDesc: prometheus.NewDesc(
+			"syscraper_io_pressure",
+			"15s interval of IO pressure (see readme)",
 			nil,
 			nil,
 		),
@@ -56,6 +60,11 @@ func (ic ioCollector) Collect(ch chan<- prometheus.Metric) {
 		ic.maxIOTimeDesc,
 		prometheus.GaugeValue,
 		maxIoTime,
+	)
+	ch <- prometheus.MustNewConstMetric(
+		ic.maxIOPressureDesc,
+		prometheus.GaugeValue,
+		maxIOPressure,
 	)
 }
 
@@ -110,12 +119,11 @@ func calcDisk(prev, curr []diskStats) (float64, float64) {
 	for _, currDisk := range curr {
 		prevDisk, exists := prevMap[currDisk.name]
 		if !exists {
-			prevDiskStats = append(prevDiskStats, currDisk)
 			continue // Must be a new disk
 		}
 
 		deltaIoTime := currDisk.ioTime - prevDisk.ioTime
-		ioUtil := (float64(deltaIoTime) / (float64(scrape_interval)) * 100)
+		ioUtil := (float64(deltaIoTime) / (float64(scrape_interval) * 1000.0) * 100)
 		if ioUtil > 100.0 {
 			ioUtil = 100.0 // Need to clamp to avoid jitter
 		}
@@ -124,7 +132,11 @@ func calcDisk(prev, curr []diskStats) (float64, float64) {
 		}
 
 		deltaWeightedTime := currDisk.weightedTime - prevDisk.weightedTime
-		avgQueueDepth := float64(deltaWeightedTime) / float64(deltaIoTime) // gives number of concurrent IO
+
+		var avgQueueDepth float64
+		if deltaIoTime != 0.0 {
+			avgQueueDepth = float64(deltaWeightedTime) / float64(deltaIoTime) // gives number of concurrent IO
+		}
 
 		// Check if name is rotational
 		var pressure float64
@@ -138,11 +150,7 @@ func calcDisk(prev, curr []diskStats) (float64, float64) {
 		}
 
 		// Store current times globally
-		prevDiskStats = append(prevDiskStats, diskStats{
-			name:         currDisk.name,
-			ioTime:       currDisk.ioTime,
-			weightedTime: currDisk.weightedTime,
-		})
+		prevDiskStats = curr
 	}
 
 	return maxIoUtil, maxPressure
