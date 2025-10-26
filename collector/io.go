@@ -66,6 +66,9 @@ func (ic ioCollector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		maxIOPressure,
 	)
+
+	// Store current times globally
+	prevDiskStats = currDiskStats
 }
 
 func readDiskstats() ([]diskStats, error) {
@@ -149,8 +152,6 @@ func calcDisk(prev, curr []diskStats) (float64, float64) {
 			maxPressure = pressure
 		}
 
-		// Store current times globally
-		prevDiskStats = curr
 	}
 
 	return maxIoUtil, maxPressure
@@ -160,13 +161,13 @@ func ioPressure(avgQueueDepth float64, deviceType string) float64 {
 	var k float64
 	switch deviceType {
 	case "HDD":
-		k = 2.0
-	case "SDD":
-		k = 5.0
+		k = 1.5
+	case "SSD":
+		k = 3.0
 	case "NVMe":
-		k = 10.0
+		k = 6.0
 	default:
-		k = 5.0
+		k = 3.0
 	}
 
 	pressure := 1 - math.Exp(-avgQueueDepth/k)

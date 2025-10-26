@@ -1,8 +1,6 @@
 package main
 
 import (
-	_ "encoding/json"
-
 	"log"
 	"net/http"
 
@@ -12,16 +10,17 @@ import (
 )
 
 func main() {
-	// Create non-global registry
+	// Create registry
 	reg := prometheus.NewRegistry()
-	// Create new metrics and register
-	reg.MustRegister(collector.NewSessionScannerCollector())
+
+	// Register metrics collectors
+	reg.MustRegister(collector.NewUserCollector())
 	reg.MustRegister(collector.NewCPUCollector())
 	reg.MustRegister(collector.NewMemCollector())
 	reg.MustRegister(collector.NewIoCollector())
 
+	// Expose metrics
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-
 	log.Fatal(http.ListenAndServe((":8081"), mux))
 }
