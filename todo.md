@@ -1,7 +1,10 @@
 ### Features
-- Memory
-- I/O
+- Fix I/O
 - Network
+- Normalize all values
+- Update readme with proper build instructions, and math
+
+- Figure out why I can't get gpu stats
 - Dynamically check if node has GPU or not
 - GPU
 

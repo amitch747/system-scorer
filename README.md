@@ -26,7 +26,7 @@ WantedBy=multi-user.target
 
 ### Build binary and start service
 
-`go build -o cmd/system-scraper && sudo mv cmd/system-scraper /usr/local/bin/`
+`go build -o system-scraper ./cmd && sudo mv system-scraper /usr/local/bin/`
 
 `sudo systemctl restart system-scraper`
 
