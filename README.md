@@ -1,6 +1,37 @@
-# A Cluster Node System Metrics Prometheus Exporter
+## Scores (work in progress)
+### System Utilization
+- GPU node
+    - Score=100×(0.45*gpu​+0.20*cpu​+0.15*mem​+0.10*disk​+0.10*net​)
+    - Include user sessions?
 
-# ---WORK IN PROGRESS---
+- CPU node
+    - Score=100×(0.50*cpu​+0.25*mem​+0.15*disk​+0.10*net​)
+### System Health
+
+## Metrics
+### GPU (WIP)
+### CPU 
+- `cpu_exec_percentage`
+  - CPU time spent not in `idle` or `iowait`
+### Memory 
+- `mem_usage`
+  - Percentage of physical memory in use
+- `mem_commit`
+  - Percentage of committed virtual memory over commit limit
+- `mem_swap`
+  - Percentage of swap space in use
+- `mem_pressure`
+  - Weighted memory pressure index (usage + swap + commit)
+### I/O (WIP)
+- `io_time`
+- `io_pressure`
+### Network (WIP)
+### Users
+- `users_total`
+  - Number of logged in users.
+- `user_session_count`
+  - Number of active sessions per user.
+
 ## Setup 
 ### Create systemd service
 `sudo nano /etc/systemd/system/system-scraper.service`
@@ -31,7 +62,7 @@ WantedBy=multi-user.target
 `sudo systemctl restart system-scraper`
 
 
-## Viewing Metrics
+## Viewing  
 ### Local
 `curl http://localhost:8081/metrics`
 

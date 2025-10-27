@@ -9,11 +9,6 @@
     - An 8 GPU system with 1 device at 100% is not as utilized as a 1 GPU system with its GPU at 100%
     
 
-- GPU node
-    - Score=100×(0.45*gpu​+0.20*cpu​+0.15*mem​+0.10*disk​+0.10*net​)
-
-- CPU node
-    - Score=100×(0.50*cpu​+0.25*mem​+0.15*disk​+0.10*net​)
 
 
 - cpu = (cpu_util_exec/100)^1.2

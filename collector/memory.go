@@ -25,29 +25,29 @@ type memInfo struct {
 }
 
 type memCollector struct {
-	memUsageDesc       *prometheus.Desc
-	memCommitRatioDesc *prometheus.Desc
-	memSwapUsedDesc    *prometheus.Desc
-	memPressureDesc    *prometheus.Desc
+	memUsageDesc    *prometheus.Desc
+	memCommitDesc   *prometheus.Desc
+	memSwapUsedDesc *prometheus.Desc
+	memPressureDesc *prometheus.Desc
 }
 
 func NewMemCollector() *memCollector {
 	return &memCollector{
 		memUsageDesc: prometheus.NewDesc(
 			"syscraper_mem_usage",
-			"Current ratio of physical memory in use",
+			"Percentage of physical memory in use",
 			nil,
 			nil,
 		),
-		memCommitRatioDesc: prometheus.NewDesc(
-			"syscraper_mem_commit_ratio",
-			"Current ratio of committed virtual memory to commit limit",
+		memCommitDesc: prometheus.NewDesc(
+			"syscraper_mem_commit",
+			"Percentage of committed virtual memory over commit limit",
 			nil,
 			nil,
 		),
 		memSwapUsedDesc: prometheus.NewDesc(
-			"syscraper_mem_swap_ratio",
-			"Current ratio of swap space in use",
+			"syscraper_mem_swap",
+			"Percentage of swap space in use",
 			nil,
 			nil,
 		),
@@ -70,42 +70,43 @@ func (mc memCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	// Collect memUsage
-	var usedRatio float64
+	var memUsed float64
 	// Make sure denominators not zero
 	if mInfo.memTotal > 0 {
-		usedRatio = float64(mInfo.memTotal-mInfo.memAvailable) / float64(mInfo.memTotal)
+		memUsed = float64(mInfo.memTotal-mInfo.memAvailable) / float64(mInfo.memTotal)
 	}
 	ch <- prometheus.MustNewConstMetric(
 		mc.memUsageDesc,
 		prometheus.GaugeValue,
-		usedRatio,
+		memUsed*100,
 	)
 	// Collect commitRatio
-	var commitRatio float64
+	var memCommit float64
 	if mInfo.commitLimit > 0 {
-		commitRatio = float64(mInfo.commitAS) / float64(mInfo.commitLimit)
+		memCommit = float64(mInfo.commitAS) / float64(mInfo.commitLimit)
 	}
 	ch <- prometheus.MustNewConstMetric(
-		mc.memCommitRatioDesc,
+		mc.memCommitDesc,
 		prometheus.GaugeValue,
-		commitRatio,
+		memCommit*100,
 	)
 	// Collect swapRatio
-	var swapRatio float64
+	var memSwap float64
 	if mInfo.swapTotal > 0 {
-		swapRatio = float64(mInfo.swapTotal-mInfo.swapFree) / float64(mInfo.swapTotal)
+		memSwap = float64(mInfo.swapTotal-mInfo.swapFree) / float64(mInfo.swapTotal)
 	}
 	ch <- prometheus.MustNewConstMetric(
 		mc.memSwapUsedDesc,
 		prometheus.GaugeValue,
-		swapRatio,
+		memSwap*100,
 	)
 
 	// nonlinear scaling (high commitRatio is very bad)
-	scaledMem := math.Pow(usedRatio, 1.5)
-	scaledSwap := math.Pow(swapRatio, 2.0)
-	scaledCommit := math.Pow(commitRatio, 3.0)
-	memPressure := 0.7*scaledMem + 0.2*scaledCommit + 0.1*scaledSwap
+	scaledMem := math.Pow(memUsed, 1.5)
+	scaledCommit := math.Pow(memCommit, 2.5)
+	scaledSwap := math.Pow(memSwap, 2.0)
+	// Saturating exponential. Needs tweaking
+	memPressure := 1 - math.Exp(-3*(0.7*scaledMem+0.2*scaledCommit+0.1*scaledSwap))
 
 	ch <- prometheus.MustNewConstMetric(
 		mc.memPressureDesc,
