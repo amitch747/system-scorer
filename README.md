@@ -26,7 +26,14 @@
 - `io_time`
 - `io_pressure`
 ### Network (WIP)
-### Users
+### Users (WIP)
+
+- `what_user_sessions_currently_active`
+- `what_each_session_currently_active`
+
+
+
+
 - `users_total`
   - Number of logged in users.
 - `user_session_count`

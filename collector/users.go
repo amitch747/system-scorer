@@ -95,3 +95,10 @@ func countSessionsPerUser(users []UserInfo) map[string]int {
 	}
 	return m
 }
+
+// ls /run/user/ | xargs id -nu
+// look into slurm to get start and end time
+// squeue (login time)
+// idle
+// for processes
+// tty from /user
