@@ -11,8 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Need to calc total CPU time not spent idle or waiting during our previous scrape interval (15s?)
-
 type cpuTimes struct {
 	user, nice, system, idle, iowait, irq, softirq, steal uint64
 }

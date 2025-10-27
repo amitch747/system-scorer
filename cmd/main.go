@@ -14,6 +14,11 @@ func main() {
 	reg := prometheus.NewRegistry()
 
 	// Register metrics collectors
+	if amdGPUCollector, err := collector.NewAMDGPUCollector(); err == nil {
+		reg.MustRegister(amdGPUCollector)
+	} else {
+		log.Printf("Warning: GPU collector not available: %v", err)
+	}
 	reg.MustRegister(collector.NewUserCollector())
 	reg.MustRegister(collector.NewCPUCollector())
 	reg.MustRegister(collector.NewMemCollector())

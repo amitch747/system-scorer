@@ -8,7 +8,7 @@ import (
 	"github.com/prometheus/procfs/sysfs"
 )
 
-type GPUCollector struct {
+type AMDGPUCollector struct {
 	fs                 sysfs.FS
 	gpuBusyPercent     *prometheus.Desc
 	gpuGTTSize         *prometheus.Desc
@@ -24,6 +24,7 @@ type GPUCollector struct {
 }
 
 /*
+	---fs.ClassDRMCardAMDGPUStats()---
 	Name                          string // The card name.
 	GPUBusyPercent                uint64 // How busy the GPU is as a percentage.
 	MemoryGTTSize                 uint64 // The size of the graphics translation table (GTT) block in bytes.
@@ -38,13 +39,13 @@ type GPUCollector struct {
 
 */
 
-func NewAMDGPUCollector() (*GPUCollector, error) {
+func NewAMDGPUCollector() (*AMDGPUCollector, error) {
 	fs, err := sysfs.NewFS("/sys")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sysfs: %w", err)
 	}
 
-	return &GPUCollector{
+	return &AMDGPUCollector{
 		fs: fs,
 		gpuBusyPercent: prometheus.NewDesc(
 			"syscraper_gpu_busy_percent",
@@ -91,11 +92,11 @@ func NewAMDGPUCollector() (*GPUCollector, error) {
 	}, nil
 }
 
-func (gc *GPUCollector) Describe(ch chan<- *prometheus.Desc) {
+func (gc *AMDGPUCollector) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(gc, ch)
 }
 
-func (gc *GPUCollector) Collect(ch chan<- prometheus.Metric) {
+func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 	stats, err := gc.fs.ClassDRMCardAMDGPUStats()
 	if err != nil {
 		return
@@ -146,8 +147,6 @@ func (gc *GPUCollector) Collect(ch chan<- prometheus.Metric) {
 		)
 	}
 
-	// Collect clock freq?
-	// Collect mem bandwidth?
-	// Collect process count?
+	// /sys/class/drm/card*/device/mem_busy_percent
 
 }

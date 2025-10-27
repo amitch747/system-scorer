@@ -7,35 +7,42 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Replacing functionality of https://github.com/stfsy/prometheus-what-active-users-exporter/tree/main
+// Instead of using `w` command, we check `/run/user/`
+// The metrics themselves keep identical names to ensure old dashboards still work
+
 type userCollector struct {
-	userTotalDesc        *prometheus.Desc
-	userSessionCountDesc *prometheus.Desc
+	userSessionsDesc *prometheus.Desc
+	eachSessionDesc  *prometheus.Desc
 }
 
 func NewUserCollector() *userCollector {
 	return &userCollector{
-		userTotalDesc: prometheus.NewDesc(
-			"syscraper_user_total",
-			"Number of logged in users.",
-			nil,
+		userSessionsDesc: prometheus.NewDesc(
+			"what_user_sessions_currently_active",
+			"Number of sessions per user",
+			[]string{"user"},
 			nil,
 		),
-		userSessionCountDesc: prometheus.NewDesc(
-			"syscraper_user_session_count",
-			"Number of active sessions per user.",
-			[]string{"username"},
+		eachSessionDesc: prometheus.NewDesc(
+			"what_each_session_currently_active",
+			"Individual sessions per user",
+			[]string{"user", "ip", "tty"},
 			nil,
 		),
 	}
 }
 
 // Prometheus will call this. Need to feed the info into the channel it will call with
-func (uc userCollector) Describe(ch chan<- *prometheus.Desc) {
+func (uc *userCollector) Describe(ch chan<- *prometheus.Desc) {
 	// Calls Collector() to figure out what descriptors exist
 	prometheus.DescribeByCollect(uc, ch)
 }
 
-func (uc userCollector) Collect(ch chan<- prometheus.Metric) {
+func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
+
+	//users, err := os.ReadDir("/run/user")
+
 	users, err := parseWCommand()
 	if err != nil {
 		return
