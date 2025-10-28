@@ -1,3 +1,20 @@
+## TODO
+### Features
+- Network collector
+- Review all math and add formulas to readme
+- **Score collector**
+- Update readme with proper setup instructions
+- Add build release to github
+- Nivida GPU
+- Document all functions
+- Tests
+
+### Minor
+- Remove go metrics from prometheus
+- Update all collect and describe function recievers to use pointers
+- Look into refactoring collectors to use github.com/prometheus/procfs/sysfs (not users.go)
+
+
 ## Scores (work in progress)
 ### System Utilization
 - GPU node
@@ -30,14 +47,6 @@
 
 - `what_user_sessions_currently_active`
 - `what_each_session_currently_active`
-
-
-
-
-- `users_total`
-  - Number of logged in users.
-- `user_session_count`
-  - Number of active sessions per user.
 
 ## Setup 
 ### Create systemd service
