@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/amitch747/prometheus-system-scraper/utility"
+	"github.com/amitch747/system-scorer/utility"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

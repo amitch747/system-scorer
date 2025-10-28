@@ -41,22 +41,21 @@
 
 ## Setup 
 ### Create systemd service
-`sudo nano /etc/systemd/system/system-scraper.service`
+`sudo nano /etc/systemd/system/system-scorer.service`
 ```
 [Unit]
-Description=System Scraper Exporter
+Description=System Scorer Prometheus Exporter
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/system-scraper
+ExecStart=/usr/local/bin/system-scorer
 WorkingDirectory=/usr/local/bin
 # Optional
-EnvironmentFile=-/etc/system-scraper/env.conf
+EnvironmentFile=-/etc/system-scorer/env.conf
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -64,9 +63,9 @@ WantedBy=multi-user.target
 
 ### Build binary and start service
 
-`go build -o system-scraper ./cmd && sudo mv system-scraper /usr/local/bin/`
+`go build -o system-scorer ./cmd && sudo mv system-scorer /usr/local/bin/`
 
-`sudo systemctl restart system-scraper`
+`sudo systemctl restart system-scorer`
 
 
 ## Viewing  

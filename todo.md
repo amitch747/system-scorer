@@ -5,6 +5,5 @@
 - Nivida GPU
 
 ### Bugs
-- Fix CPU name and numbers
 - Remove go metrics from prometheus
-- Swap collect and describe recievers to use pointers
+- Swap collect and describe function recievers to use pointers

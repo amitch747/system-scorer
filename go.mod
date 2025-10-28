@@ -1,4 +1,4 @@
-module github.com/amitch747/prometheus-system-scraper
+module github.com/amitch747/system-scorer
 
 go 1.25.3
 
