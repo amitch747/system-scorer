@@ -1,10 +1,9 @@
 ## TODO
 ### Features
-- Network collector
 - Review all math and add formulas to readme
-- **Score collector**
 - Update readme with proper setup instructions
 - Add build release to github
+- **Score collector**
 - Nivida GPU
 - Document all functions
 - Tests
