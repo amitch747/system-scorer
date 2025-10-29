@@ -1,8 +1,107 @@
 package collector
 
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/procfs"
+)
+
 type networkCollector struct {
+	netSaturation      *prometheus.Desc
+	netDropPercentage  *prometheus.Desc
+	netErrorPercentage *prometheus.Desc
 }
 
+func NewNetworkCollector() *networkCollector {
+	return &networkCollector{
+		netSaturation: prometheus.NewDesc(
+			"syscore_net_throughput_percentage",
+			"15s percentage of throughput over link capacity",
+			nil,
+			nil,
+		),
+		netDropPercentage: prometheus.NewDesc(
+			"syscore_net_drop_percentage",
+			"15s percentage of packets dropped over total packets",
+			nil,
+			nil,
+		),
+		netErrorPercentage: prometheus.NewDesc(
+			"syscore_net_error_percentage",
+			"15s percentage of packet errors over total packets",
+			nil,
+			nil,
+		),
+	}
+}
+
+func (nc *networkCollector) Describe(ch chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(nc, ch)
+}
+
+type networkStats struct {
+	bytesReceive, packetsReceive, errsReceive, dropRecieve     uint64
+	bytesTransmit, packetsTransmit, errsTransmit, dropTransmit uint64
+}
+
+var prevNetworkStats map[string]networkStats
+
+func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
+	networkStats, err := readNetworkStats()
+	if err != nil {
+		return
+	}
+	println(networkStats)
+
+	ch <- prometheus.MustNewConstMetric(
+		nc.netSaturation,
+		prometheus.GaugeValue,
+		float64(2.2),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		nc.netDropPercentage,
+		prometheus.GaugeValue,
+		float64(2.2),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		nc.netErrorPercentage,
+		prometheus.GaugeValue,
+		float64(2.2),
+	)
+}
+
+func readNetworkStats() (map[string]networkStats, error) {
+	deviceStats := map[string]networkStats{}
+
+	fs, err := procfs.NewFS("/proc")
+	if err != nil {
+		return nil, err
+	}
+	// https://pkg.go.dev/github.com/prometheus/procfs#FS.NetDev
+	procNetDev, err := fs.NetDev()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, device := range procNetDev {
+		deviceName := device.Name
+
+		deviceStats[deviceName] = networkStats{
+			bytesReceive:   device.RxBytes,
+			packetsReceive: device.RxPackets,
+			errsReceive:    device.RxErrors,
+			dropRecieve:    device.RxDropped,
+
+			bytesTransmit:   device.TxBytes,
+			packetsTransmit: device.TxPackets,
+			errsTransmit:    device.TxErrors,
+			dropTransmit:    device.TxDropped,
+		}
+	}
+
+	return deviceStats, nil
+}
+
+//type netDevStats map[string]map[string]uint64
 // /proc/net/dev
 // 15s delta just like cpu.go
 
