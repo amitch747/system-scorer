@@ -23,6 +23,7 @@ func main() {
 	reg.MustRegister(collector.NewCPUCollector())
 	reg.MustRegister(collector.NewMemCollector())
 	reg.MustRegister(collector.NewIoCollector())
+	reg.MustRegister(collector.NewNetworkCollector())
 
 	// Expose metrics
 	mux := http.NewServeMux()

@@ -1,36 +1,37 @@
 package collector
 
 import (
+	"github.com/amitch747/system-scorer/utility"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/procfs"
 )
 
 type networkCollector struct {
-	netSaturation      *prometheus.Desc
-	netDropPercentage  *prometheus.Desc
-	netErrorPercentage *prometheus.Desc
+	netSaturation *prometheus.Desc
+	// netDropPercentage  *prometheus.Desc
+	// netErrorPercentage *prometheus.Desc
 }
 
 func NewNetworkCollector() *networkCollector {
 	return &networkCollector{
 		netSaturation: prometheus.NewDesc(
-			"syscore_net_throughput_percentage",
+			"syscore_net_saturation_percentage",
 			"15s percentage of throughput over link capacity",
-			nil,
-			nil,
-		),
-		netDropPercentage: prometheus.NewDesc(
-			"syscore_net_drop_percentage",
-			"15s percentage of packets dropped over total packets",
-			nil,
+			[]string{"device"},
 			nil,
 		),
-		netErrorPercentage: prometheus.NewDesc(
-			"syscore_net_error_percentage",
-			"15s percentage of packet errors over total packets",
-			nil,
-			nil,
-		),
+		// netDropPercentage: prometheus.NewDesc(
+		// 	"syscore_net_drop_percentage",
+		// 	"15s percentage of packets dropped over total packets",
+		// 	nil,
+		// 	nil,
+		// ),
+		// netErrorPercentage: prometheus.NewDesc(
+		// 	"syscore_net_error_percentage",
+		// 	"15s percentage of packet errors over total packets",
+		// 	nil,
+		// 	nil,
+		// ),
 	}
 }
 
@@ -46,31 +47,42 @@ type networkStats struct {
 var prevNetworkStats map[string]networkStats
 
 func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
-	networkStats, err := readNetworkStats()
+
+	deviceNetStats, err := readNetworkStats()
 	if err != nil {
 		return
 	}
-	println(networkStats)
 
-	ch <- prometheus.MustNewConstMetric(
-		nc.netSaturation,
-		prometheus.GaugeValue,
-		float64(2.2),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		nc.netDropPercentage,
-		prometheus.GaugeValue,
-		float64(2.2),
-	)
-	ch <- prometheus.MustNewConstMetric(
-		nc.netErrorPercentage,
-		prometheus.GaugeValue,
-		float64(2.2),
-	)
+	// Get device linkspeeds
+	linkSpeeds := utility.GetLinkSpeeds()
+
+	metrics := calcNetworkMetrics(deviceNetStats, linkSpeeds)
+
+	prevNetworkStats = deviceNetStats
+
+	for device, saturation := range metrics {
+		ch <- prometheus.MustNewConstMetric(
+			nc.netSaturation,
+			prometheus.GaugeValue,
+			saturation,
+			device,
+		)
+
+	}
+	// ch <- prometheus.MustNewConstMetric(
+	// 	nc.netDropPercentage,
+	// 	prometheus.GaugeValue,
+	// 	float64(2.2),
+	// )
+	// ch <- prometheus.MustNewConstMetric(
+	// 	nc.netErrorPercentage,
+	// 	prometheus.GaugeValue,
+	// 	float64(2.2),
+	// )
 }
 
 func readNetworkStats() (map[string]networkStats, error) {
-	deviceStats := map[string]networkStats{}
+	deviceNetStats := map[string]networkStats{}
 
 	fs, err := procfs.NewFS("/proc")
 	if err != nil {
@@ -85,7 +97,7 @@ func readNetworkStats() (map[string]networkStats, error) {
 	for _, device := range procNetDev {
 		deviceName := device.Name
 
-		deviceStats[deviceName] = networkStats{
+		deviceNetStats[deviceName] = networkStats{
 			bytesReceive:   device.RxBytes,
 			packetsReceive: device.RxPackets,
 			errsReceive:    device.RxErrors,
@@ -98,7 +110,45 @@ func readNetworkStats() (map[string]networkStats, error) {
 		}
 	}
 
-	return deviceStats, nil
+	return deviceNetStats, nil
+}
+
+func calcNetworkMetrics(stats map[string]networkStats, linkSpeeds map[string]int64) map[string]float64 {
+	deviceSaturation := make(map[string]float64)
+
+	if len(prevNetworkStats) == 0 {
+		return deviceSaturation
+	}
+	// Have current. Need deltas
+	for deviceName, netStats := range stats {
+		// Filter out virtual? network devices
+		if utility.NetDeviceFilter.MatchString(deviceName) {
+			continue
+		}
+		// Get prev stats
+		prevNetStats, ok := prevNetworkStats[deviceName]
+		if !ok {
+			continue
+		}
+
+		// Get link speed
+		linkSpeed, ok := linkSpeeds[deviceName]
+		if !ok || linkSpeed == 0 {
+			continue
+		}
+
+		// Calculate deltas
+		deltaRxBytes := netStats.bytesReceive - prevNetStats.bytesReceive
+		deltaTxBytes := netStats.bytesTransmit - prevNetStats.bytesTransmit
+		totalBytes := deltaRxBytes + deltaTxBytes
+
+		throughputBps := float64(totalBytes) / utility.ScrapeInterval
+
+		saturation := (float64(throughputBps) / float64(linkSpeed)) * 100.0
+		deviceSaturation[deviceName] = saturation
+		// Take max?
+	}
+	return deviceSaturation
 }
 
 //type netDevStats map[string]map[string]uint64
