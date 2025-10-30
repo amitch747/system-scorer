@@ -2,23 +2,13 @@ package collector
 
 import (
 	"bufio"
+	"math"
 	"os"
 	"strconv"
-
-	"math"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-/*
-	from /proc/meminfo
-
-	mem_score = 0.8*(MemTotal - MemAvailable)/MemTotal + 0.2*(1 - SwapFree/SwapTotal)
-
-	commit_ratio = Committed_AS / CommitLimit
-
-*/
 
 type memInfo struct {
 	memTotal, memAvailable, swapTotal, swapFree, commitLimit, commitAS uint64

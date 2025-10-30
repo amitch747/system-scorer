@@ -10,7 +10,6 @@ type networkCollector struct {
 	netSaturation      *prometheus.Desc
 	netDropPercentage  *prometheus.Desc
 	netErrorPercentage *prometheus.Desc
-	maxNetSaturation   *prometheus.Desc
 }
 
 func NewNetworkCollector() *networkCollector {
@@ -31,12 +30,6 @@ func NewNetworkCollector() *networkCollector {
 			"syscore_net_error_percentage",
 			"15s percentage of packet errors over total packets",
 			[]string{"device"},
-			nil,
-		),
-		maxNetSaturation: prometheus.NewDesc(
-			"syscore_net_max_saturation",
-			"15s maximum out of all saturation for all network devices",
-			nil,
 			nil,
 		),
 	}
@@ -100,12 +93,6 @@ func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
 			deviceName,
 		)
 	}
-
-	ch <- prometheus.MustNewConstMetric(
-		nc.maxNetSaturation,
-		prometheus.GaugeValue,
-		maxSaturation,
-	)
 }
 
 func readNetworkStats() (map[string]networkStats, error) {

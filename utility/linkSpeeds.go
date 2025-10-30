@@ -6,8 +6,10 @@ import (
 	"github.com/prometheus/procfs/sysfs"
 )
 
-var linkSpeeds map[string]int64
-var linkSpeedsOnce sync.Once
+var (
+	linkSpeedsOnce sync.Once
+	linkSpeeds     map[string]int64
+)
 
 func GetLinkSpeeds() map[string]int64 {
 	linkSpeedsOnce.Do(func() {
@@ -21,7 +23,6 @@ func GetLinkSpeeds() map[string]int64 {
 				speeds[name] = *dev.Speed * 125000
 			}
 		}
-
 		linkSpeeds = speeds
 	})
 	return linkSpeeds
