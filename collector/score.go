@@ -141,18 +141,23 @@ func getUserUtilization() float64 {
 	}
 
 	userCount := len(entires)
-
+	var userUtil float64
 	// GPU Node
 	gpuNode, gpuCount := utility.GetGPUConfig()
 	if gpuNode {
 		// 1 card per person
-		return float64(userCount) / float64(gpuCount) * 100
+		userUtil = float64(userCount) / float64(gpuCount) * 100
+	} else {
+		cpuCapacity := runtime.NumCPU() / 16
+		userUtil = float64(userCount) / float64(cpuCapacity) * 100
 	}
-
 	// CPU Node
 	// 16 cores per user
-	cpuCapacity := runtime.NumCPU() / 16
-	return float64(userCount) / float64(cpuCapacity) * 100
+
+	if userUtil > 100 {
+		userUtil = 100
+	}
+	return userUtil
 
 }
 
@@ -168,7 +173,7 @@ func calcWeightedScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float6
 	if hasGPU {
 		g = math.Pow(gpu/100, 1.2)
 	}
-	u := user / 100 // No need to scale this?
+	u := 1 - math.Exp(-2*(user/100))
 
 	// Weights emphasize GPU > CPU > Mem > IO > Net
 	var wCPU, wMem, wGPU, wDisk, wNet, wUser float64
@@ -200,7 +205,7 @@ func calcBottleneckScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) floa
 	if hasGPU {
 		g = math.Pow(gpu/100, 1.2)
 	}
-	u := user / 100 // No need to scale this?
+	u := 1 - math.Exp(-2*(user/100))
 
 	// Soft-OR = bottleneck emphasis
 	bottleneck := math.Max(c, math.Max(m, math.Max(d, math.Max(n, math.Max(g, u)))))
