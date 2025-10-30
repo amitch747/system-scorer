@@ -74,22 +74,23 @@ func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
 			maxSaturation = device.saturationPercentage
 		}
 
+		// Export as percentages (0-100) for Prometheus
 		ch <- prometheus.MustNewConstMetric(
 			nc.netSaturationDesc,
 			prometheus.GaugeValue,
-			device.saturationPercentage,
+			device.saturationPercentage*100,
 			deviceName,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			nc.netDropPercentageDesc,
 			prometheus.GaugeValue,
-			device.dropPercentage,
+			device.dropPercentage*100,
 			deviceName,
 		)
 		ch <- prometheus.MustNewConstMetric(
 			nc.netErrorPercentageDesc,
 			prometheus.GaugeValue,
-			device.errsPercentage,
+			device.errsPercentage*100,
 			deviceName,
 		)
 	}
@@ -151,12 +152,12 @@ func calcNetworkMetrics(stats map[string]networkStats, linkSpeeds map[string]int
 			continue
 		}
 
-		// Calculate saturation
+		// Calculate saturation (return as 0-1 for internal use)
 		deltaRxBytes := netStats.bytesReceive - prevNetStats.bytesReceive
 		deltaTxBytes := netStats.bytesTransmit - prevNetStats.bytesTransmit
 		totalBytes := deltaRxBytes + deltaTxBytes
 		throughputBps := float64(totalBytes) / utility.ScrapeInterval
-		saturationPercentage := (float64(throughputBps) / float64(linkSpeed)) * 100.0
+		saturationPercentage := float64(throughputBps) / float64(linkSpeed)
 
 		deltaRxPackets := netStats.packetsReceive - prevNetStats.packetsReceive
 		deltaTxPackets := netStats.packetsTransmit - prevNetStats.packetsTransmit
@@ -171,8 +172,8 @@ func calcNetworkMetrics(stats map[string]networkStats, linkSpeeds map[string]int
 		var dropPercentage, errPercentage float64
 
 		if totalPackets > 0 {
-			dropPercentage = ((deltaRxDrop + deltaTxDrop) / totalPackets) * 100.0
-			errPercentage = ((deltaRxError + deltaTxError) / totalPackets) * 100.0
+			dropPercentage = (deltaRxDrop + deltaTxDrop) / totalPackets
+			errPercentage = (deltaRxError + deltaTxError) / totalPackets
 		} else {
 			dropPercentage = 0.0
 			errPercentage = 0.0

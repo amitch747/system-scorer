@@ -1,44 +1,52 @@
-## TODO
-### Features
-- Review all math and add formulas to readme
-- Update readme with proper setup instructions
-- Add build release to github
-- Document all functions
+# Node Utilization Score Exporter for Slurm Clusters
+Description work in progress ;)
+## Scoring
 
-### Minor
-- Look into refactoring collectors to use github.com/prometheus/procfs/sysfs (not users.go)
+### Scaling Functions
 
-## Scores (work in progress)
-### Weighted System Utilization
+Metrics used in scoring are transformed nonlinearly before aggregation:
+- **GPU:** $\huge g = {gpu_{busy}}^{1.2}$
+- **CPU:** $\huge c = {cpu_{busy}}^{1.2}$
+- **Memory:** $\huge m = {mem_{usage}}^{1.5}$  
+- **Disk I/O:** $\huge i = {io_{time}}^{1.2}$  
+- **Network:** $\huge n = 1 - e^{-2 \cdot {net_{saturation}}}$
+- **Users:** $\huge \# users$
 
-### Bottlenecked System Utilization
+### Weighted Score
 
-### System Health
+$$
+\huge utilization_{weighted} = 100 \times \left[1 - \prod_{i} (1 - w_i \cdot f_i)\right]
+$$
 
-## Additional Metrics
-### GPU (WIP)
+Weights (GPU nodes): $\large w_{GPU}=0.34, w_{CPU}=0.20, w_{mem}=0.10, w_{disk}=0.01, w_{net}=0.01, w_{user}=0.34$
+
+Weights (CPU nodes): $\large w_{GPU}=0.00, w_{CPU}=0.54, w_{mem}=0.10, w_{disk}=0.01, w_{net}=0.01, w_{user}=0.34$
+
+### Bottleneck Score
+
+$$
+\huge utilization_{bottleneck} = 100 \times \max(c, m, d, g, n, u)
+$$
+
+## Metrics (WIP)
+### GPU
+- `gpu_busy_percent`
+
 ### CPU 
-- `cpu_exec_percentage`
-  - CPU time spent not in `idle` or `iowait`
+- `cpu_exec`
+  - Percentage of scrape interval (15s default) of CPU time spent not in `idle` or `iowait` (0-100)
+### Users (WIP)
+- `what_user_sessions_currently_active`
+- `what_each_session_currently_active`
 ### Memory 
 - `mem_usage`
   - Percentage of physical memory in use
-- `mem_commit`
-  - Percentage of committed virtual memory over commit limit
-- `mem_swap`
-  - Percentage of swap space in use
-- `mem_pressure`
-  - Weighted memory pressure index (usage + swap + commit)
-### I/O (WIP)
+### I/O 
 - `io_time`
-- `io_pressure`
-### Network (WIP)
-### Users (WIP)
+### Network 
+- `net_saturation_percentage`
 
-- `what_user_sessions_currently_active`
-- `what_each_session_currently_active`
-
-## Setup 
+## Setup (WIP)
 ### Create systemd service
 `sudo nano /etc/systemd/system/system-scorer.service`
 ```
@@ -102,8 +110,9 @@ sudo systemctl enable grafana-server
 sudo systemctl start grafana-server
 sudo systemctl status grafana-server
 ```
-http://localhost:3000
 - Default credentials will be admin/admin
 - Go to Settings -> Data sources -> Add data source -> Prometheus
 - URL: http://localhost:9090
 - Click save and test
+
+- Grafana will be at http://localhost:3000

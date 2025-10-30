@@ -12,7 +12,6 @@ import (
 type scoreCollector struct {
 	weightedScoreDesc   *prometheus.Desc
 	bottleneckScoreDesc *prometheus.Desc
-	userUtilDesc        *prometheus.Desc
 }
 
 func NewScoreCollector() *scoreCollector {
@@ -26,12 +25,6 @@ func NewScoreCollector() *scoreCollector {
 		bottleneckScoreDesc: prometheus.NewDesc(
 			"syscore_utilization_score_bottleneck",
 			"Bottleneck utilization score (0–100)",
-			nil,
-			nil,
-		),
-		userUtilDesc: prometheus.NewDesc(
-			"Test",
-			"Test",
 			nil,
 			nil,
 		),
@@ -54,12 +47,6 @@ func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 	weighted := calcWeightedScore(cpu, mem, gpu, io, net, user, hasGPU)
 	bottleneck := calcBottleneckScore(cpu, mem, gpu, io, net, user, hasGPU)
 
-	userCount := GetActiveUserCount()
-
-	ch <- prometheus.MustNewConstMetric(
-		sc.userUtilDesc, prometheus.GaugeValue, float64(userCount),
-	)
-
 	ch <- prometheus.MustNewConstMetric(
 		sc.weightedScoreDesc, prometheus.GaugeValue, weighted,
 	)
@@ -74,7 +61,7 @@ func getCPUUtilization() float64 {
 	if err != nil {
 		return 0
 	}
-	return calcCPUExecPercentage(prevCPUTimes, curr)
+	return calcCPUExec(prevCPUTimes, curr)
 }
 
 func getMemoryUtilization() float64 {
@@ -82,7 +69,7 @@ func getMemoryUtilization() float64 {
 	if err != nil || m.memTotal == 0 {
 		return 0
 	}
-	return float64(m.memTotal-m.memAvailable) / float64(m.memTotal) * 100
+	return float64(m.memTotal-m.memAvailable) / float64(m.memTotal)
 }
 
 func getGPUUtilization() (float64, bool) {
@@ -99,10 +86,11 @@ func getGPUUtilization() (float64, bool) {
 	for _, card := range stats {
 		var vram float64
 		if card.MemoryVRAMSize > 0 {
-			vram = float64(card.MemoryVRAMUsed) / float64(card.MemoryVRAMSize) * 100
+			vram = float64(card.MemoryVRAMUsed) / float64(card.MemoryVRAMSize)
 		}
 		// 70% busy, 30% VRAM - maybe change
-		sum += 0.7*float64(card.GPUBusyPercent) + 0.3*vram
+		// GPUBusyPercent is already 0-100, normalize to 0-1
+		sum += 0.7*float64(card.GPUBusyPercent)/100 + 0.3*vram
 	}
 
 	return sum / float64(len(stats)), true
@@ -136,43 +124,48 @@ func getNetworkUtilization() float64 {
 }
 
 func getUserUtilization() float64 {
-
 	userCount := GetActiveUserCount()
-	var userUtil float64
-	// GPU Node
+
 	gpuNode, gpuCount := utility.GetGPUConfig()
+
+	var capacity int
 	if gpuNode {
-		// 1 card per person
-		userUtil = float64(userCount) / float64(gpuCount) * 100
+		// GPU Node: 1 user per GPU
+		capacity = gpuCount
 	} else {
-		cpuCapacity := runtime.NumCPU() / 16
-		userUtil = float64(userCount) / float64(cpuCapacity) * 100
+		// CPU Node: 16 cores per user
+		capacity = runtime.NumCPU() / 16
 	}
-	// CPU Node
-	// 16 cores per user
 
-	if userUtil > 100 {
-		userUtil = 100
+	// Prevent division by zero
+	if capacity == 0 {
+		capacity = 1
 	}
+
+	userUtil := float64(userCount) / float64(capacity)
+
+	// Clamp to 0-1 range
+	if userUtil > 1.0 {
+		userUtil = 1.0
+	}
+
 	return userUtil
-
 }
 
 func calcWeightedScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float64 {
 
 	// Nonlinear (higher util penalized more)
-	c := math.Pow(cpu/100, 1.2)
-	m := math.Pow(mem/100, 1.5)
-	d := math.Pow(io/100, 1.2)
-	// Exponential saturation to reflect network congestion
-	n := 1 - math.Exp(-2*(net/100))
+	c := math.Pow(cpu, 1.2)
+	m := math.Pow(mem, 1.5)
+	d := math.Pow(io, 1.2)
+	n := 1 - math.Exp(-2*net) // Exponential saturation for network congestion
 	g := 0.0
 	if hasGPU {
-		g = math.Pow(gpu/100, 1.2)
+		g = math.Pow(gpu, 1.2)
 	}
-	u := 1 - math.Exp(-2*(user/100))
+	u := user // Exponential saturation for user sessions
 
-	// Weights emphasize GPU > CPU > Mem > IO > Net
+	// emphasize GPU > CPU > Mem > IO > Net
 	var wCPU, wMem, wGPU, wDisk, wNet, wUser float64
 	if hasGPU {
 		wGPU, wCPU, wMem, wDisk, wNet, wUser = 0.34, 0.20, 0.10, 0.01, 0.01, 0.34
@@ -194,15 +187,15 @@ func calcWeightedScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float6
 
 func calcBottleneckScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float64 {
 
-	c := math.Pow(cpu/100, 1.2)
-	m := math.Pow(mem/100, 1.5)
-	d := math.Pow(io/100, 1.2)
-	n := 1 - math.Exp(-2*(net/100))
+	c := math.Pow(cpu, 1.2)
+	m := math.Pow(mem, 1.5)
+	d := math.Pow(io, 1.2)
+	n := 1 - math.Exp(-2*net)
 	g := 0.0
 	if hasGPU {
-		g = math.Pow(gpu/100, 1.2)
+		g = math.Pow(gpu, 1.2)
 	}
-	u := 1 - math.Exp(-2*(user/100))
+	u := user
 
 	// Soft-OR = bottleneck emphasis
 	bottleneck := math.Max(c, math.Max(m, math.Max(d, math.Max(n, math.Max(g, u)))))
