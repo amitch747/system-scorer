@@ -146,13 +146,13 @@ func getUserUtilization() float64 {
 	gpuNode, gpuCount := utility.GetGPUConfig()
 	if gpuNode {
 		// 1 card per person
-		return float64((userCount / gpuCount) * 100)
+		return float64(userCount) / float64(gpuCount) * 100
 	}
 
 	// CPU Node
 	// 16 cores per user
 	cpuCapacity := runtime.NumCPU() / 16
-	return float64((userCount / cpuCapacity) * 100)
+	return float64(userCount) / float64(cpuCapacity) * 100
 
 }
 
