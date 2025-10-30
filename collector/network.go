@@ -102,7 +102,7 @@ func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	ch <- prometheus.MustNewConstMetric(
-		nc.netErrorPercentage,
+		nc.maxNetSaturation,
 		prometheus.GaugeValue,
 		maxSaturation,
 	)
