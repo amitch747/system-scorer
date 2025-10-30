@@ -2,6 +2,8 @@ package collector
 
 import (
 	"math"
+	"os"
+	"runtime"
 
 	"github.com/amitch747/system-scorer/utility"
 	"github.com/prometheus/client_golang/prometheus"
@@ -52,9 +54,10 @@ func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 	gpu, hasGPU := getGPUUtilization()
 	io := getDiskUtilization()
 	net := getNetworkUtilization()
+	user := getUserUtilization()
 
-	weighted := calcWeightedScore(cpu, mem, gpu, io, net, hasGPU)
-	bottleneck := calcBottleneckScore(cpu, mem, gpu, io, net, hasGPU)
+	weighted := calcWeightedScore(cpu, mem, gpu, io, net, user, hasGPU)
+	bottleneck := calcBottleneckScore(cpu, mem, gpu, io, net, user, hasGPU)
 
 	ch <- prometheus.MustNewConstMetric(
 		sc.weightedScoreDesc, prometheus.GaugeValue, weighted,
@@ -131,24 +134,48 @@ func getNetworkUtilization() float64 {
 	return max
 }
 
-func calcWeightedScore(cpu, mem, gpu, io, net float64, hasGPU bool) float64 {
+func getUserUtilization() float64 {
+	entires, err := os.ReadDir("/run/user")
+	if err != nil {
+		return 0
+	}
+
+	userCount := len(entires)
+
+	// GPU Node
+	gpuNode, gpuCount := utility.GetGPUConfig()
+	if gpuNode {
+		// 1 card per person
+		return float64((userCount / gpuCount) * 100)
+	}
+
+	// CPU Node
+	// 16 cores per user
+	cpuCapacity := runtime.NumCPU() / 16
+	return float64((userCount / cpuCapacity) * 100)
+
+}
+
+func calcWeightedScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float64 {
 
 	// Nonlinear (higher util penalized more)
 	c := math.Pow(cpu/100, 1.2)
 	m := math.Pow(mem/100, 1.5)
 	d := math.Pow(io/100, 1.2)
+	// Exponential saturation to reflect network congestion
 	n := 1 - math.Exp(-2*(net/100))
 	g := 0.0
 	if hasGPU {
 		g = math.Pow(gpu/100, 1.2)
 	}
+	u := user / 100 // No need to scale this?
 
 	// Weights emphasize GPU > CPU > Mem > IO > Net
-	var wCPU, wMem, wGPU, wDisk, wNet float64
+	var wCPU, wMem, wGPU, wDisk, wNet, wUser float64
 	if hasGPU {
-		wGPU, wCPU, wMem, wDisk, wNet = 0.45, 0.20, 0.15, 0.10, 0.10
+		wGPU, wCPU, wMem, wDisk, wNet, wUser = 0.34, 0.20, 0.10, 0.01, 0.01, 0.34
 	} else {
-		wGPU, wCPU, wMem, wDisk, wNet = 0.0, 0.50, 0.25, 0.15, 0.10
+		wGPU, wCPU, wMem, wDisk, wNet, wUser = 0.0, 0.54, 0.10, 0.01, 0.01, 0.34
 	}
 
 	// Soft aggregation (smooth AND)
@@ -157,12 +184,13 @@ func calcWeightedScore(cpu, mem, gpu, io, net float64, hasGPU bool) float64 {
 			(1 - wMem*m) *
 			(1 - wGPU*g) *
 			(1 - wDisk*d) *
-			(1 - wNet*n))
+			(1 - wNet*n) *
+			(1 - wUser*u))
 
 	return score * 100
 }
 
-func calcBottleneckScore(cpu, mem, gpu, io, net float64, hasGPU bool) float64 {
+func calcBottleneckScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float64 {
 
 	c := math.Pow(cpu/100, 1.2)
 	m := math.Pow(mem/100, 1.5)
@@ -172,15 +200,10 @@ func calcBottleneckScore(cpu, mem, gpu, io, net float64, hasGPU bool) float64 {
 	if hasGPU {
 		g = math.Pow(gpu/100, 1.2)
 	}
+	u := user / 100 // No need to scale this?
 
 	// Soft-OR = bottleneck emphasis
-	bottleneck := math.Max(c,
-		math.Max(m,
-			math.Max(d,
-				math.Max(n, g),
-			),
-		),
-	)
+	bottleneck := math.Max(c, math.Max(m, math.Max(d, math.Max(n, math.Max(g, u)))))
 
 	return bottleneck * 100
 }

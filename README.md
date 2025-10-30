@@ -1,29 +1,21 @@
 ## TODO
 ### Features
-- 
 - Review all math and add formulas to readme
 - Update readme with proper setup instructions
 - Add build release to github
-- **Score collector**
-- Nivida GPU
 - Document all functions
-- Tests
 
 ### Minor
 - Look into refactoring collectors to use github.com/prometheus/procfs/sysfs (not users.go)
 
-
 ## Scores (work in progress)
-### System Utilization
-- GPU node
-    - Score=100×(0.45*gpu​+0.20*cpu​+0.15*mem​+0.10*disk​+0.10*net​)
-    - Include user sessions?
+### Weighted System Utilization
 
-- CPU node
-    - Score=100×(0.50*cpu​+0.25*mem​+0.15*disk​+0.10*net​)
+### Bottlenecked System Utilization
+
 ### System Health
 
-## Metrics
+## Additional Metrics
 ### GPU (WIP)
 ### CPU 
 - `cpu_exec_percentage`
