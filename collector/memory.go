@@ -34,25 +34,25 @@ type memCollector struct {
 func NewMemCollector() *memCollector {
 	return &memCollector{
 		memUsageDesc: prometheus.NewDesc(
-			"syscraper_mem_usage",
+			"syscore_mem_usage",
 			"Percentage of physical memory in use",
 			nil,
 			nil,
 		),
 		memCommitDesc: prometheus.NewDesc(
-			"syscraper_mem_commit",
+			"syscore_mem_commit",
 			"Percentage of committed virtual memory over commit limit",
 			nil,
 			nil,
 		),
 		memSwapUsedDesc: prometheus.NewDesc(
-			"syscraper_mem_swap",
+			"syscore_mem_swap",
 			"Percentage of swap space in use",
 			nil,
 			nil,
 		),
 		memPressureDesc: prometheus.NewDesc(
-			"syscraper_mem_pressure",
+			"syscore_mem_pressure",
 			"Weighted memory pressure index (usage + swap + commit)",
 			nil,
 			nil,
@@ -60,11 +60,11 @@ func NewMemCollector() *memCollector {
 	}
 }
 
-func (mc memCollector) Describe(ch chan<- *prometheus.Desc) {
+func (mc *memCollector) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(mc, ch)
 }
 
-func (mc memCollector) Collect(ch chan<- prometheus.Metric) {
+func (mc *memCollector) Collect(ch chan<- prometheus.Metric) {
 	mInfo, err := readMemInfo()
 	if err != nil {
 		return

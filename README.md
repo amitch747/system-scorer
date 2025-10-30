@@ -1,5 +1,6 @@
 ## TODO
 ### Features
+- 
 - Review all math and add formulas to readme
 - Update readme with proper setup instructions
 - Add build release to github
@@ -9,8 +10,6 @@
 - Tests
 
 ### Minor
-- Remove go metrics from prometheus
-- Update all collect and describe function recievers to use pointers
 - Look into refactoring collectors to use github.com/prometheus/procfs/sysfs (not users.go)
 
 
@@ -81,7 +80,7 @@ WantedBy=multi-user.target
 `curl http://localhost:8081/metrics`
 
 ### Prometheus
-- Update config
+- Update `/etc/prometheus/prometheus.yml`
 ```
 scrape_configs:
   - job_name: 'prometheus'

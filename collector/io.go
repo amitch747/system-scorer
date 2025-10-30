@@ -29,13 +29,13 @@ type ioCollector struct {
 func NewIoCollector() *ioCollector {
 	return &ioCollector{
 		maxIOTimeDesc: prometheus.NewDesc(
-			"syscraper_io_time",
+			"syscore_io_time",
 			"15s interval of time spent doing IO",
 			nil,
 			nil,
 		),
 		maxIOPressureDesc: prometheus.NewDesc(
-			"syscraper_io_pressure",
+			"syscore_io_pressure",
 			"15s interval of IO pressure (see readme)",
 			nil,
 			nil,
@@ -43,11 +43,11 @@ func NewIoCollector() *ioCollector {
 	}
 }
 
-func (ic ioCollector) Describe(ch chan<- *prometheus.Desc) {
+func (ic *ioCollector) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(ic, ch)
 }
 
-func (ic ioCollector) Collect(ch chan<- prometheus.Metric) {
+func (ic *ioCollector) Collect(ch chan<- prometheus.Metric) {
 	currDiskStats, err := readDiskstats()
 	if err != nil {
 		return

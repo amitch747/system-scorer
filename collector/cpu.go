@@ -25,13 +25,13 @@ type CPUCollector struct {
 func NewCPUCollector() *CPUCollector {
 	return &CPUCollector{
 		cpuCountDesc: prometheus.NewDesc(
-			"syscraper_cpu_count",
+			"syscore_cpu_count",
 			"Number of CPU cores",
 			nil,
 			nil,
 		),
 		cpuExecPercentageDesc: prometheus.NewDesc(
-			"syscraper_cpu_exec_percentage",
+			"syscore_cpu_exec_percentage",
 			"15s percentage of CPU time spent not in idle or iowait",
 			nil,
 			nil,
@@ -39,11 +39,11 @@ func NewCPUCollector() *CPUCollector {
 	}
 }
 
-func (cc CPUCollector) Describe(ch chan<- *prometheus.Desc) {
+func (cc *CPUCollector) Describe(ch chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(cc, ch)
 }
 
-func (cc CPUCollector) Collect(ch chan<- prometheus.Metric) {
+func (cc *CPUCollector) Collect(ch chan<- prometheus.Metric) {
 	// Collect cpuCount
 	ch <- prometheus.MustNewConstMetric(
 		cc.cpuCountDesc,
