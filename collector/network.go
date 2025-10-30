@@ -7,26 +7,26 @@ import (
 )
 
 type networkCollector struct {
-	netSaturation      *prometheus.Desc
-	netDropPercentage  *prometheus.Desc
-	netErrorPercentage *prometheus.Desc
+	netSaturationDesc      *prometheus.Desc
+	netDropPercentageDesc  *prometheus.Desc
+	netErrorPercentageDesc *prometheus.Desc
 }
 
 func NewNetworkCollector() *networkCollector {
 	return &networkCollector{
-		netSaturation: prometheus.NewDesc(
+		netSaturationDesc: prometheus.NewDesc(
 			"syscore_net_saturation_percentage",
 			"15s percentage of throughput over link capacity",
 			[]string{"device"},
 			nil,
 		),
-		netDropPercentage: prometheus.NewDesc(
+		netDropPercentageDesc: prometheus.NewDesc(
 			"syscore_net_drop_percentage",
 			"15s percentage of packets dropped over total packets",
 			[]string{"device"},
 			nil,
 		),
-		netErrorPercentage: prometheus.NewDesc(
+		netErrorPercentageDesc: prometheus.NewDesc(
 			"syscore_net_error_percentage",
 			"15s percentage of packet errors over total packets",
 			[]string{"device"},
@@ -75,19 +75,19 @@ func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		ch <- prometheus.MustNewConstMetric(
-			nc.netSaturation,
+			nc.netSaturationDesc,
 			prometheus.GaugeValue,
 			device.saturationPercentage,
 			deviceName,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			nc.netDropPercentage,
+			nc.netDropPercentageDesc,
 			prometheus.GaugeValue,
 			device.dropPercentage,
 			deviceName,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			nc.netErrorPercentage,
+			nc.netErrorPercentageDesc,
 			prometheus.GaugeValue,
 			device.errsPercentage,
 			deviceName,

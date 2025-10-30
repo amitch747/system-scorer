@@ -2,7 +2,6 @@ package collector
 
 import (
 	"math"
-	"os"
 	"runtime"
 
 	"github.com/amitch747/system-scorer/utility"
@@ -10,21 +9,10 @@ import (
 	"github.com/prometheus/procfs/sysfs"
 )
 
-/*
-1) syscore_utilization_score_weighted
-   - Smooth nonlinear weighted average
-   - Represents "overall load"
-
-2) syscore_utilization_score_bottleneck
-   - Soft-OR / bottleneck emphasis
-   - Represents "effective bottleneck pressure"
-
-Both are 0–100 scores consumed by dashboards.
-*/
-
 type scoreCollector struct {
 	weightedScoreDesc   *prometheus.Desc
 	bottleneckScoreDesc *prometheus.Desc
+	userUtilDesc        *prometheus.Desc
 }
 
 func NewScoreCollector() *scoreCollector {
@@ -32,19 +20,26 @@ func NewScoreCollector() *scoreCollector {
 		weightedScoreDesc: prometheus.NewDesc(
 			"syscore_utilization_score_weighted",
 			"Nonlinear weighted utilization score (0–100)",
-			nil, nil,
+			nil,
+			nil,
 		),
 		bottleneckScoreDesc: prometheus.NewDesc(
 			"syscore_utilization_score_bottleneck",
-			"Bottleneck-or utilization score (0–100)",
-			nil, nil,
+			"Bottleneck utilization score (0–100)",
+			nil,
+			nil,
+		),
+		userUtilDesc: prometheus.NewDesc(
+			"Test",
+			"Test",
+			nil,
+			nil,
 		),
 	}
 }
 
 func (sc *scoreCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- sc.weightedScoreDesc
-	ch <- sc.bottleneckScoreDesc
+	prometheus.DescribeByCollect(sc, ch)
 }
 
 func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
@@ -58,6 +53,12 @@ func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 
 	weighted := calcWeightedScore(cpu, mem, gpu, io, net, user, hasGPU)
 	bottleneck := calcBottleneckScore(cpu, mem, gpu, io, net, user, hasGPU)
+
+	userCount := GetActiveUserCount()
+
+	ch <- prometheus.MustNewConstMetric(
+		sc.userUtilDesc, prometheus.GaugeValue, float64(userCount),
+	)
 
 	ch <- prometheus.MustNewConstMetric(
 		sc.weightedScoreDesc, prometheus.GaugeValue, weighted,
@@ -135,12 +136,8 @@ func getNetworkUtilization() float64 {
 }
 
 func getUserUtilization() float64 {
-	entires, err := os.ReadDir("/run/user")
-	if err != nil {
-		return 0
-	}
 
-	userCount := len(entires)
+	userCount := GetActiveUserCount()
 	var userUtil float64
 	// GPU Node
 	gpuNode, gpuCount := utility.GetGPUConfig()

@@ -202,3 +202,51 @@ func readSSHClient(pid string) string {
 // idle
 // for processes
 // tty from /user
+
+// Add to users.go
+func GetActiveUserCount() int {
+	usernameUID := make(map[string]string)
+	activeUsers := make(map[string]struct{})
+
+	proc, err := os.ReadDir("/proc")
+	if err != nil {
+		return 0
+	}
+
+	for _, entry := range proc {
+		if !entry.IsDir() {
+			continue
+		}
+		if _, err := strconv.Atoi(entry.Name()); err != nil {
+			continue
+		}
+
+		uid := readUID(entry.Name())
+		if uid == "" {
+			continue
+		}
+
+		if stat, err := os.Stat(filepath.Join("/run/user", uid)); err != nil || !stat.IsDir() {
+			continue
+		}
+
+		ttys := readTTYs(entry.Name())
+		if len(ttys) == 0 {
+			continue
+		}
+
+		username, ok := usernameUID[uid]
+		if !ok {
+			if userObj, err := user.LookupId(uid); err == nil {
+				username = userObj.Username
+				usernameUID[uid] = username
+			} else {
+				continue
+			}
+		}
+
+		activeUsers[username] = struct{}{}
+	}
+
+	return len(activeUsers)
+}

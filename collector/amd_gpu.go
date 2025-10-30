@@ -7,63 +7,63 @@ import (
 )
 
 type AMDGPUCollector struct {
-	gpuBusyPercent        *prometheus.Desc
-	gpuGTTSize            *prometheus.Desc
-	gpuGTTUsed            *prometheus.Desc
-	gpuVisibleVRAMSize    *prometheus.Desc
-	gpuVisibleVRAMUsed    *prometheus.Desc
-	gpuMemoryVRAMSize     *prometheus.Desc
-	gpuMemoryVRAMUsed     *prometheus.Desc
-	gpuAverageUtilization *prometheus.Desc
+	gpuBusyPercentDesc        *prometheus.Desc
+	gpuGTTSizeDesc            *prometheus.Desc
+	gpuGTTUsedDesc            *prometheus.Desc
+	gpuVisibleVRAMSizeDesc    *prometheus.Desc
+	gpuVisibleVRAMUsedDesc    *prometheus.Desc
+	gpuMemoryVRAMSizeDesc     *prometheus.Desc
+	gpuMemoryVRAMUsedDesc     *prometheus.Desc
+	gpuAverageUtilizationDesc *prometheus.Desc
 }
 
 // /sys/class/drm/card*/device/mem_busy_percent
 
 func NewAMDGPUCollector() (*AMDGPUCollector, error) {
 	return &AMDGPUCollector{
-		gpuBusyPercent: prometheus.NewDesc(
+		gpuBusyPercentDesc: prometheus.NewDesc(
 			"syscore_gpu_busy_percent",
 			"Percentage GPU is busy.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuGTTSize: prometheus.NewDesc(
+		gpuGTTSizeDesc: prometheus.NewDesc(
 			"syscore_gpu_gtt_size",
 			"Size of GTT block in bytes.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuGTTUsed: prometheus.NewDesc(
+		gpuGTTUsedDesc: prometheus.NewDesc(
 			"syscore_gpu_gtt_used",
 			"Used bytes of GTT block.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuVisibleVRAMSize: prometheus.NewDesc(
+		gpuVisibleVRAMSizeDesc: prometheus.NewDesc(
 			"syscore_gpu_visible_vram_size",
 			"Size of visible VRAM in bytes.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuVisibleVRAMUsed: prometheus.NewDesc(
+		gpuVisibleVRAMUsedDesc: prometheus.NewDesc(
 			"syscore_gpu_visible_vram_used",
 			"Used bytes of visible VRAM.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuMemoryVRAMSize: prometheus.NewDesc(
+		gpuMemoryVRAMSizeDesc: prometheus.NewDesc(
 			"syscore_gpu_vram_size",
 			"Size of VRAM in bytes.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuMemoryVRAMUsed: prometheus.NewDesc(
+		gpuMemoryVRAMUsedDesc: prometheus.NewDesc(
 			"syscore_gpu_vram_used",
 			"Used bytes of VRAM.",
 			[]string{"card", "id"},
 			nil,
 		),
-		gpuAverageUtilization: prometheus.NewDesc(
+		gpuAverageUtilizationDesc: prometheus.NewDesc(
 			"syscore_gpu_average_utilization_percent",
 			"System average of gpu utilization",
 			nil,
@@ -91,43 +91,43 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 	// Export metrics for each card
 	for _, card := range stats {
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuBusyPercent,
+			gc.gpuBusyPercentDesc,
 			prometheus.GaugeValue,
 			float64(card.GPUBusyPercent),
 			card.Name, card.UniqueID,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuGTTSize,
+			gc.gpuGTTSizeDesc,
 			prometheus.GaugeValue,
 			float64(card.MemoryGTTSize),
 			card.Name, card.UniqueID,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuGTTUsed,
+			gc.gpuGTTUsedDesc,
 			prometheus.GaugeValue,
 			float64(card.MemoryGTTUsed),
 			card.Name, card.UniqueID,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuVisibleVRAMSize,
+			gc.gpuVisibleVRAMSizeDesc,
 			prometheus.GaugeValue,
 			float64(card.MemoryVisibleVRAMSize),
 			card.Name, card.UniqueID,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuVisibleVRAMUsed,
+			gc.gpuVisibleVRAMUsedDesc,
 			prometheus.GaugeValue,
 			float64(card.MemoryVisibleVRAMUsed),
 			card.Name, card.UniqueID,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuMemoryVRAMSize,
+			gc.gpuMemoryVRAMSizeDesc,
 			prometheus.GaugeValue,
 			float64(card.MemoryVRAMSize),
 			card.Name, card.UniqueID,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			gc.gpuMemoryVRAMUsed,
+			gc.gpuMemoryVRAMUsedDesc,
 			prometheus.GaugeValue,
 			float64(card.MemoryVRAMUsed),
 			card.Name, card.UniqueID,
@@ -139,7 +139,7 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 	avgGpuUtil := float64(totalGpuUtil) / float64(gpuCount)
 
 	ch <- prometheus.MustNewConstMetric(
-		gc.gpuAverageUtilization,
+		gc.gpuAverageUtilizationDesc,
 		prometheus.GaugeValue,
 		avgGpuUtil,
 	)
