@@ -22,3 +22,6 @@
 - Slurm stuff needs to be factored in at the end. Reservations and jobs (even if they are not actually using resources) are technically utilizing the system
     - Someone may reserve a node for 24hrs and do NOTHING, but as far as everyone else is concerned, that node is not usable
 
+
+
+- /sys/kernel/kfd for detailed gpu?

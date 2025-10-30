@@ -24,6 +24,8 @@ func main() {
 	reg.MustRegister(collector.NewMemCollector())
 	reg.MustRegister(collector.NewIoCollector())
 	reg.MustRegister(collector.NewNetworkCollector())
+	reg.MustRegister(collector.NewSlurmCollector())
+	reg.MustRegister(collector.NewScoreCollector())
 
 	// Expose metrics
 	mux := http.NewServeMux()

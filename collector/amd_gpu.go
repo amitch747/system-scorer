@@ -3,50 +3,24 @@ package collector
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"fmt"
-
 	"github.com/prometheus/procfs/sysfs"
 )
 
 type AMDGPUCollector struct {
-	fs                 sysfs.FS
-	gpuBusyPercent     *prometheus.Desc
-	gpuGTTSize         *prometheus.Desc
-	gpuGTTUsed         *prometheus.Desc
-	gpuVisibleVRAMSize *prometheus.Desc
-	gpuVisibleVRAMUsed *prometheus.Desc
-	gpuMemoryVRAMSize  *prometheus.Desc
-	gpuMemoryVRAMUsed  *prometheus.Desc
-
-	// gpuClockDesc       *prometheus.Desc // Maybe skip
-	// gpuMemoryBandwidth *prometheus.Desc // Not available on all cards
-	// gpuProcessCount    *prometheus.Desc
+	gpuBusyPercent        *prometheus.Desc
+	gpuGTTSize            *prometheus.Desc
+	gpuGTTUsed            *prometheus.Desc
+	gpuVisibleVRAMSize    *prometheus.Desc
+	gpuVisibleVRAMUsed    *prometheus.Desc
+	gpuMemoryVRAMSize     *prometheus.Desc
+	gpuMemoryVRAMUsed     *prometheus.Desc
+	gpuAverageUtilization *prometheus.Desc
 }
 
-/*
-	---fs.ClassDRMCardAMDGPUStats()---
-	Name                          string // The card name.
-	GPUBusyPercent                uint64 // How busy the GPU is as a percentage.
-	MemoryGTTSize                 uint64 // The size of the graphics translation table (GTT) block in bytes.
-	MemoryGTTUsed                 uint64 // The used amount of the graphics translation table (GTT) block in bytes.
-	MemoryVisibleVRAMSize         uint64 // The size of visible VRAM in bytes.
-	MemoryVisibleVRAMUsed         uint64 // The used amount of visible VRAM in bytes.
-	MemoryVRAMSize                uint64 // The size of VRAM in bytes.
-	MemoryVRAMUsed                uint64 // The used amount of VRAM in bytes.
-	MemoryVRAMVendor              string // The VRAM vendor name.
-	PowerDPMForcePerformanceLevel string // The current power performance level.
-	UniqueID                      string // The unique ID of the GPU that will persist from machine to machine.
-
-*/
+// /sys/class/drm/card*/device/mem_busy_percent
 
 func NewAMDGPUCollector() (*AMDGPUCollector, error) {
-	fs, err := sysfs.NewFS("/sys")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open sysfs: %w", err)
-	}
-
 	return &AMDGPUCollector{
-		fs: fs,
 		gpuBusyPercent: prometheus.NewDesc(
 			"syscore_gpu_busy_percent",
 			"Percentage GPU is busy.",
@@ -89,6 +63,12 @@ func NewAMDGPUCollector() (*AMDGPUCollector, error) {
 			[]string{"card", "id"},
 			nil,
 		),
+		gpuAverageUtilization: prometheus.NewDesc(
+			"syscore_gpu_average_utilization_percent",
+			"System average of gpu utilization",
+			nil,
+			nil,
+		),
 	}, nil
 }
 
@@ -97,10 +77,17 @@ func (gc *AMDGPUCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
-	stats, err := gc.fs.ClassDRMCardAMDGPUStats()
+	fs, err := sysfs.NewFS("/sys")
 	if err != nil {
 		return
 	}
+	stats, err := fs.ClassDRMCardAMDGPUStats()
+	if err != nil {
+		return
+	}
+	var totalGpuUtil float64
+	var gpuCount int
+
 	// Export metrics for each card
 	for _, card := range stats {
 		ch <- prometheus.MustNewConstMetric(
@@ -145,8 +132,16 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 			float64(card.MemoryVRAMUsed),
 			card.Name, card.UniqueID,
 		)
+		gpuUtil := 0.7*float64(card.GPUBusyPercent) + 0.3*((float64(card.MemoryVisibleVRAMUsed)/float64(card.MemoryVRAMSize))*100)
+		totalGpuUtil += gpuUtil
+		gpuCount++
 	}
+	avgGpuUtil := float64(totalGpuUtil) / float64(gpuCount)
 
-	// /sys/class/drm/card*/device/mem_busy_percent
+	ch <- prometheus.MustNewConstMetric(
+		gc.gpuAverageUtilization,
+		prometheus.GaugeValue,
+		avgGpuUtil,
+	)
 
 }
