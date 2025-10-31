@@ -52,7 +52,7 @@ func NewScoreCollector() *scoreCollector {
 		),
 		netUtilDesc: prometheus.NewDesc(
 			"syscore_scaled_net_util",
-			"Scaled CPU exec time used in utilization score",
+			"Scaled max network saturation (see network.go) used in utilization score",
 			nil,
 			nil,
 		),
@@ -73,7 +73,7 @@ func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// Gather info from other collectors
 	gpuUtil := SharedGpuUtil
-	hasGPU := GPUCheck
+	hasGPU, _ := utility.GetGPUConfig()
 	cpuUtil := SharedCPUExec
 	memUtil := SharedMemUsed
 	ioUtil := SharedMaxIOTime
@@ -119,57 +119,6 @@ func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 
 }
 
-// func getGPUUtilization() (float64, bool) {
-// 	fs, err := sysfs.NewFS("/sys")
-// 	if err != nil {
-// 		return 0, false
-// 	}
-// 	stats, err := fs.ClassDRMCardAMDGPUStats()
-// 	if err != nil || len(stats) == 0 {
-// 		return 0, false
-// 	}
-
-// 	var sum float64
-// 	for _, card := range stats {
-// 		var vram float64
-// 		if card.MemoryVRAMSize > 0 {
-// 			vram = float64(card.MemoryVRAMUsed) / float64(card.MemoryVRAMSize)
-// 		}
-// 		// 70% busy, 30% VRAM - maybe change
-// 		// GPUBusyPercent is already 0-100, normalize to 0-1
-// 		sum += 0.7*float64(card.GPUBusyPercent)/100 + 0.3*vram
-// 	}
-
-// 	return sum / float64(len(stats)), true
-// }
-
-// func getDiskUtilization() float64 {
-// 	curr, err := readDiskstats()
-// 	if err != nil {
-// 		return 0
-// 	}
-// 	maxIO, _ := calcDisk(prevDiskStats, curr)
-// 	return maxIO
-// }
-
-// func getNetworkUtilization() float64 {
-// 	stats, err := readNetworkStats()
-// 	if err != nil {
-// 		return 0
-// 	}
-
-// 	speeds := utility.GetLinkSpeeds()
-// 	devs := calcNetworkMetrics(stats, speeds)
-
-// 	max := 0.0
-// 	for _, m := range devs {
-// 		if m.saturationPercentage > max {
-// 			max = m.saturationPercentage
-// 		}
-// 	}
-// 	return max
-// }
-
 func getUserUtilization() float64 {
 	userCount := SharedUserCount
 
@@ -203,7 +152,7 @@ type scaledUtilizations struct {
 	g, c, m, i, n float64
 }
 
-func calcWeightedScore(sacledUtils scaledUtilizations, usersUtil float64, hasGPU bool) float64 {
+func calcWeightedScore(scaledUtils scaledUtilizations, usersUtil float64, hasGPU bool) float64 {
 
 	// Setup weights
 	// emphasize GPU > CPU > Mem > IO >= Net
@@ -215,27 +164,27 @@ func calcWeightedScore(sacledUtils scaledUtilizations, usersUtil float64, hasGPU
 	}
 
 	// Soft aggregation (smooth AND)
-	score := 1 - ((1 - wCPU*sacledUtils.c) *
-		(1 - wMem*sacledUtils.m) *
-		(1 - wGPU*sacledUtils.g) *
-		(1 - wIO*sacledUtils.i) *
-		(1 - wNet*sacledUtils.n) *
+	score := 1 - ((1 - wCPU*scaledUtils.c) *
+		(1 - wMem*scaledUtils.m) *
+		(1 - wGPU*scaledUtils.g) *
+		(1 - wIO*scaledUtils.i) *
+		(1 - wNet*scaledUtils.n) *
 		(1 - wUser*usersUtil))
 
 	return score * 100
 }
 
-func utilScaling(cpu, mem, gpu, io, net float64, hasGPU bool) scaledUtilizations {
+func utilScaling(gpuUtil, cpuUtil, memUtil, ioUtil, netUtil float64, hasGPU bool) scaledUtilizations {
 
 	// Nonlinear (higher util penalized more)
-	scaledCPU := math.Pow(cpu, 1.2)
-	scaledMem := math.Pow(mem, 1.5)
-	scaledIO := math.Pow(io, 1.2)
-	scaledNet := 1 - math.Exp(-2*net) // Exponential saturation for network congestion
 	scaledGPU := 0.0
 	if hasGPU {
-		scaledGPU = math.Pow(gpu, 1.2)
+		scaledGPU = math.Pow(gpuUtil, 1.2)
 	}
+	scaledCPU := math.Pow(cpuUtil, 1.2)
+	scaledMem := math.Pow(memUtil, 1.5)
+	scaledIO := math.Pow(ioUtil, 1.2)
+	scaledNet := 1 - math.Exp(-2*netUtil) // Exponential saturation for network congestion
 
 	return scaledUtilizations{
 		g: scaledGPU,
