@@ -46,7 +46,7 @@ func NewScoreCollector() *scoreCollector {
 			nil,
 		),
 		ioUtilDesc: prometheus.NewDesc(
-			"syscore_scaled_cpu_util",
+			"syscore_scaled_io_util",
 			"Scaled max IO util (see io.go) used in utilization score",
 			nil,
 			nil,
