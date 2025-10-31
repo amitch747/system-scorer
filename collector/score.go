@@ -10,8 +10,13 @@ import (
 )
 
 type scoreCollector struct {
-	weightedScoreDesc   *prometheus.Desc
-	bottleneckScoreDesc *prometheus.Desc
+	weightedScoreDesc *prometheus.Desc
+	cpuUtilDesc       *prometheus.Desc
+	gpuUtilDesc       *prometheus.Desc
+	memUtilDesc       *prometheus.Desc
+	ioUtilDesc        *prometheus.Desc
+	netUtilDesc       *prometheus.Desc
+	userCountDesc     *prometheus.Desc
 }
 
 func NewScoreCollector() *scoreCollector {
@@ -22,9 +27,39 @@ func NewScoreCollector() *scoreCollector {
 			nil,
 			nil,
 		),
-		bottleneckScoreDesc: prometheus.NewDesc(
-			"syscore_utilization_score_bottleneck",
-			"Bottleneck utilization score (0–100)",
+		cpuUtilDesc: prometheus.NewDesc(
+			"syscore_scaled_cpu_util",
+			"Scaled CPU exec time ratio used in utilization score",
+			nil,
+			nil,
+		),
+		gpuUtilDesc: prometheus.NewDesc(
+			"syscore_scaled_gpu_util",
+			"Scaled average of GPU util (busy % and VRAM) used in utilization score",
+			nil,
+			nil,
+		),
+		memUtilDesc: prometheus.NewDesc(
+			"syscore_scaled_mem_util",
+			"Scaled memory usage ratio used in utilization score",
+			nil,
+			nil,
+		),
+		ioUtilDesc: prometheus.NewDesc(
+			"syscore_scaled_cpu_util",
+			"Scaled max IO util (see io.go) used in utilization score",
+			nil,
+			nil,
+		),
+		netUtilDesc: prometheus.NewDesc(
+			"syscore_scaled_net_util",
+			"Scaled CPU exec time used in utilization score",
+			nil,
+			nil,
+		),
+		userCountDesc: prometheus.NewDesc(
+			"syscore_active_users",
+			"Number of active users on the node",
 			nil,
 			nil,
 		),
@@ -37,31 +72,53 @@ func (sc *scoreCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 
+	// Collect raw utilization
+	gpu, hasGPU := getGPUUtilization()
 	cpu := getCPUUtilization()
 	mem := getMemoryUtilization()
-	gpu, hasGPU := getGPUUtilization()
 	io := getDiskUtilization()
 	net := getNetworkUtilization()
-	user := getUserUtilization()
+	users := getUserUtilization()
 
-	weighted := calcWeightedScore(cpu, mem, gpu, io, net, user, hasGPU)
-	bottleneck := calcBottleneckScore(cpu, mem, gpu, io, net, user, hasGPU)
+	// Scale utilization values
+	scaledUtils := utilScaling(cpu, mem, gpu, io, net, hasGPU)
+
+	// Export scaled GPU
+	ch <- prometheus.MustNewConstMetric(
+		sc.gpuUtilDesc, prometheus.GaugeValue, scaledUtils.g,
+	)
+	// Export scaled CPU
+	ch <- prometheus.MustNewConstMetric(
+		sc.cpuUtilDesc, prometheus.GaugeValue, scaledUtils.c,
+	)
+	// Export scaled memory
+	ch <- prometheus.MustNewConstMetric(
+		sc.memUtilDesc, prometheus.GaugeValue, scaledUtils.m,
+	)
+	// Export scaled I/O
+	ch <- prometheus.MustNewConstMetric(
+		sc.ioUtilDesc, prometheus.GaugeValue, scaledUtils.i,
+	)
+	// Export scaled network
+	ch <- prometheus.MustNewConstMetric(
+		sc.netUtilDesc, prometheus.GaugeValue, scaledUtils.n,
+	)
+	// Export user count
+	ch <- prometheus.MustNewConstMetric(
+		sc.userCountDesc, prometheus.GaugeValue, users,
+	)
+
+	// Calcualte weighted utilization score
+	weighted := calcWeightedScore(scaledUtils, users, hasGPU)
 
 	ch <- prometheus.MustNewConstMetric(
 		sc.weightedScoreDesc, prometheus.GaugeValue, weighted,
 	)
 
-	ch <- prometheus.MustNewConstMetric(
-		sc.bottleneckScoreDesc, prometheus.GaugeValue, bottleneck,
-	)
 }
 
 func getCPUUtilization() float64 {
-	curr, err := readCPUTimes()
-	if err != nil {
-		return 0
-	}
-	return calcCPUExec(prevCPUTimes, curr)
+	return lastCPUExec
 }
 
 func getMemoryUtilization() float64 {
@@ -152,53 +209,49 @@ func getUserUtilization() float64 {
 	return userUtil
 }
 
-func calcWeightedScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float64 {
+type scaledUtilizations struct {
+	g, c, m, i, n float64
+}
 
-	// Nonlinear (higher util penalized more)
-	c := math.Pow(cpu, 1.2)
-	m := math.Pow(mem, 1.5)
-	d := math.Pow(io, 1.2)
-	n := 1 - math.Exp(-2*net) // Exponential saturation for network congestion
-	g := 0.0
-	if hasGPU {
-		g = math.Pow(gpu, 1.2)
-	}
-	u := user // Exponential saturation for user sessions
+func calcWeightedScore(sacledUtils scaledUtilizations, users float64, hasGPU bool) float64 {
 
-	// emphasize GPU > CPU > Mem > IO > Net
-	var wCPU, wMem, wGPU, wDisk, wNet, wUser float64
+	// Setup weights
+	// emphasize GPU > CPU > Mem > IO >= Net
+	var wGPU, wCPU, wMem, wIO, wNet, wUser float64
 	if hasGPU {
-		wGPU, wCPU, wMem, wDisk, wNet, wUser = 0.34, 0.20, 0.10, 0.01, 0.01, 0.34
+		wGPU, wCPU, wMem, wIO, wNet, wUser = 0.34, 0.20, 0.10, 0.01, 0.01, 0.34
 	} else {
-		wGPU, wCPU, wMem, wDisk, wNet, wUser = 0.0, 0.54, 0.10, 0.01, 0.01, 0.34
+		wGPU, wCPU, wMem, wIO, wNet, wUser = 0.0, 0.54, 0.10, 0.01, 0.01, 0.34
 	}
 
 	// Soft aggregation (smooth AND)
-	score := 1 -
-		((1 - wCPU*c) *
-			(1 - wMem*m) *
-			(1 - wGPU*g) *
-			(1 - wDisk*d) *
-			(1 - wNet*n) *
-			(1 - wUser*u))
+	score := 1 - ((1 - wCPU*sacledUtils.c) *
+		(1 - wMem*sacledUtils.m) *
+		(1 - wGPU*sacledUtils.g) *
+		(1 - wIO*sacledUtils.i) *
+		(1 - wNet*sacledUtils.n) *
+		(1 - wUser*users))
 
 	return score * 100
 }
 
-func calcBottleneckScore(cpu, mem, gpu, io, net, user float64, hasGPU bool) float64 {
+func utilScaling(cpu, mem, gpu, io, net float64, hasGPU bool) scaledUtilizations {
 
-	c := math.Pow(cpu, 1.2)
-	m := math.Pow(mem, 1.5)
-	d := math.Pow(io, 1.2)
-	n := 1 - math.Exp(-2*net)
-	g := 0.0
+	// Nonlinear (higher util penalized more)
+	scaledCPU := math.Pow(cpu, 1.2)
+	scaledMem := math.Pow(mem, 1.5)
+	scaledIO := math.Pow(io, 1.2)
+	scaledNet := 1 - math.Exp(-2*net) // Exponential saturation for network congestion
+	scaledGPU := 0.0
 	if hasGPU {
-		g = math.Pow(gpu, 1.2)
+		scaledGPU = math.Pow(gpu, 1.2)
 	}
-	u := user
 
-	// Soft-OR = bottleneck emphasis
-	bottleneck := math.Max(c, math.Max(m, math.Max(d, math.Max(n, math.Max(g, u)))))
-
-	return bottleneck * 100
+	return scaledUtilizations{
+		g: scaledGPU,
+		c: scaledCPU,
+		m: scaledMem,
+		i: scaledIO,
+		n: scaledNet,
+	}
 }
