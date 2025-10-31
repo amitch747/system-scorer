@@ -12,6 +12,8 @@ type networkCollector struct {
 	netErrorPercentageDesc *prometheus.Desc
 }
 
+var SharedMaxNetSaturation float64
+
 func NewNetworkCollector() *networkCollector {
 	return &networkCollector{
 		netSaturationDesc: prometheus.NewDesc(
@@ -94,6 +96,7 @@ func (nc *networkCollector) Collect(ch chan<- prometheus.Metric) {
 			deviceName,
 		)
 	}
+	SharedMaxNetSaturation = maxSaturation
 }
 
 func readNetworkStats() (map[string]networkStats, error) {
@@ -137,7 +140,7 @@ func calcNetworkMetrics(stats map[string]networkStats, linkSpeeds map[string]int
 	// Have current. Need deltas
 	for deviceName, netStats := range stats {
 		// Filter out virtual? network devices
-		if utility.NetDeviceFilter.MatchString(deviceName) {
+		if NetDeviceFilter.MatchString(deviceName) {
 			continue
 		}
 		// Get prev stats
@@ -156,7 +159,7 @@ func calcNetworkMetrics(stats map[string]networkStats, linkSpeeds map[string]int
 		deltaRxBytes := netStats.bytesReceive - prevNetStats.bytesReceive
 		deltaTxBytes := netStats.bytesTransmit - prevNetStats.bytesTransmit
 		totalBytes := deltaRxBytes + deltaTxBytes
-		throughputBps := float64(totalBytes) / utility.ScrapeInterval
+		throughputBps := float64(totalBytes) / ScrapeInterval
 		saturationPercentage := float64(throughputBps) / float64(linkSpeed)
 
 		deltaRxPackets := netStats.packetsReceive - prevNetStats.packetsReceive

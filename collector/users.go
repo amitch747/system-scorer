@@ -19,6 +19,8 @@ type userCollector struct {
 	eachSessionDesc  *prometheus.Desc
 }
 
+var SharedUserCount float64
+
 func NewUserCollector() *userCollector {
 	return &userCollector{
 		userSessionsDesc: prometheus.NewDesc(
@@ -66,7 +68,7 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		// Find uid from /proc/pid/status
-		uid := ReadUID(pid)
+		uid := readUID(pid)
 		if uid == "" {
 			continue
 		}
@@ -90,7 +92,7 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		// Find ttys
-		ttys := ReadTTYs(pid)
+		ttys := readTTYs(pid)
 		if len(ttys) == 0 {
 			continue
 		}
@@ -118,6 +120,8 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 	}
 
+	SharedUserCount = float64(len(userSessionCount))
+
 	for user, count := range userSessionCount {
 		ch <- prometheus.MustNewConstMetric(
 			uc.userSessionsDesc,
@@ -128,57 +132,7 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// GetActiveUserCount returns the number of unique users with active TTY sessions
-func GetActiveUserCount() int {
-	usernameUID := make(map[string]string)
-	activeUsers := make(map[string]struct{})
-
-	proc, err := os.ReadDir("/proc")
-	if err != nil {
-		return 0
-	}
-
-	for _, entry := range proc {
-		if !entry.IsDir() {
-			continue
-		}
-		pid := entry.Name()
-		if _, err := strconv.Atoi(pid); err != nil {
-			continue
-		}
-
-		uid := ReadUID(pid)
-		if uid == "" {
-			continue
-		}
-
-		stat, err := os.Stat(filepath.Join("/run/user", uid))
-		if err != nil || !stat.IsDir() {
-			continue
-		}
-
-		ttys := ReadTTYs(pid)
-		if len(ttys) == 0 {
-			continue
-		}
-
-		username, ok := usernameUID[uid]
-		if !ok {
-			if userObj, err := user.LookupId(uid); err == nil {
-				username = userObj.Username
-				usernameUID[uid] = username
-			} else {
-				continue
-			}
-		}
-
-		activeUsers[username] = struct{}{}
-	}
-
-	return len(activeUsers)
-}
-
-func ReadUID(pid string) string {
+func readUID(pid string) string {
 	data, err := os.ReadFile(filepath.Join("/proc", pid, "status"))
 	if err != nil {
 		return ""
@@ -196,7 +150,7 @@ func ReadUID(pid string) string {
 	return ""
 }
 
-func ReadTTYs(pid string) []string {
+func readTTYs(pid string) []string {
 	fdDir := filepath.Join("/proc", pid, "fd")
 	entries, err := os.ReadDir(fdDir)
 	if err != nil {
