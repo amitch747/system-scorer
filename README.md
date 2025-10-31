@@ -80,16 +80,12 @@ WantedBy=multi-user.target
 `curl http://localhost:8081/metrics`
 
 ### Prometheus
-- Update `/etc/prometheus/prometheus.yml`
+- Update `sudo nano /etc/prometheus/prometheus.yml`
 ```
 scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-
   - job_name: 'system_scraper'
     static_configs:
-      - targets: ['localhost:8081']
+      - targets: ['localhost:8081'] 
 ```
 
 ```
@@ -99,10 +95,11 @@ sudo systemctl status prometheus
 ```
 http://localhost:9090/classic/targets
 
-
 ### Grafana
+https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/
 
 ```
+
 sudo apt update
 sudo apt install grafana
 
