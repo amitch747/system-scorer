@@ -1,13 +1,14 @@
 ## TODO
 ### Features
-- Review all math and add formulas to readme
-- Update readme with proper setup instructions
-
+- Export pressures in score.go
+- Get rid of bottleneck
 - Slurm Updates (Job status, reservation status)
 
-- Documentation pass over all functions
+- Look into refactoring collectors to use github.com/prometheus/procfs/sysfs (not users.go)
+
+- Cleanup everything. Better naming, avoid double scrapes, maybe add Go routines
+
+- Heavy documentation
+- Update readme with proper setup instructions
 
 - Add build release to github
-
-### Minor
-- Look into refactoring collectors to use github.com/prometheus/procfs/sysfs (not users.go)
