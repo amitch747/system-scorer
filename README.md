@@ -10,8 +10,8 @@ Metrics used in scoring are transformed nonlinearly before aggregation:
 - **Memory:** $\huge m = {mem_{usage}}^{1.5}$  
 - **Disk I/O:** $\huge i = {io_{time}}^{1.2}$  
 - **Network:** $\huge n = 1 - e^{-2 \cdot {net_{saturation}}}$
-- **Users:** $\huge user\#$
-
+- **User:** $\huge users/capacity$
+ 
 ### Weighted Score
 
 $$
