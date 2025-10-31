@@ -17,9 +17,11 @@ type diskStats struct {
 	weightedTime uint64
 }
 
-// keep a slice of previous diskStats
-var prevDiskStats []diskStats
-var scrape_interval = 15
+var (
+	// keep a slice of previous diskStats
+	prevDiskStats   []diskStats
+	SharedMaxIOTime float64 // Used in score.go to avoid double scrape
+)
 
 type ioCollector struct {
 	maxIOTimeDesc     *prometheus.Desc
@@ -56,6 +58,7 @@ func (ic *ioCollector) Collect(ch chan<- prometheus.Metric) {
 	// process disks
 	maxIoTime, maxIOPressure := calcDisk(prevDiskStats, currDiskStats)
 
+	SharedMaxIOTime = maxIoTime
 	// Export as percentages (0-100) for Prometheus
 	ch <- prometheus.MustNewConstMetric(
 		ic.maxIOTimeDesc,
@@ -127,7 +130,7 @@ func calcDisk(prev, curr []diskStats) (float64, float64) {
 		}
 
 		deltaIoTime := currDisk.ioTime - prevDisk.ioTime
-		ioUtil := (float64(deltaIoTime) / (float64(scrape_interval) * 1000.0))
+		ioUtil := (float64(deltaIoTime)) / float64((ScrapeInterval * 1000.0))
 		if ioUtil > 1.0 {
 			ioUtil = 1.0 // Need to clamp to avoid jitter
 		}

@@ -19,6 +19,8 @@ type userCollector struct {
 	eachSessionDesc  *prometheus.Desc
 }
 
+var SharedUserCount float64
+
 func NewUserCollector() *userCollector {
 	return &userCollector{
 		userSessionsDesc: prometheus.NewDesc(
@@ -118,6 +120,8 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 	}
 
+	SharedUserCount = float64(len(userSessionCount))
+
 	for user, count := range userSessionCount {
 		ch <- prometheus.MustNewConstMetric(
 			uc.userSessionsDesc,
@@ -129,7 +133,7 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 // GetActiveUserCount returns the number of unique users with active TTY sessions
-func GetActiveUserCount() int {
+func GetActiveUserCount() float64 {
 	usernameUID := make(map[string]string)
 	activeUsers := make(map[string]struct{})
 
@@ -175,7 +179,7 @@ func GetActiveUserCount() int {
 		activeUsers[username] = struct{}{}
 	}
 
-	return len(activeUsers)
+	return float64(len(activeUsers))
 }
 
 func ReadUID(pid string) string {

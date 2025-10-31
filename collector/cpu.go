@@ -16,8 +16,8 @@ type cpuTimes struct {
 }
 
 var (
-	prevCPUTimes cpuTimes
-	lastCPUExec  float64 // Cached value to avoid double scrape
+	prevCPUTimes  cpuTimes // Times from scrape 15s before current
+	SharedCPUExec float64  // Used in score.go to avoid double scrape
 )
 
 type CPUCollector struct {
@@ -59,8 +59,8 @@ func (cc *CPUCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	cpuExec := calcCPUExec(prevCPUTimes, currCPUTimes)
-	// Cache value for use in score.go
-	lastCPUExec = cpuExec
+	// Save exec for use in score.go
+	SharedCPUExec = cpuExec
 	// Update for next scrape
 	prevCPUTimes = currCPUTimes
 	// Collect cpuExec as percentage (0-100) for Prometheus

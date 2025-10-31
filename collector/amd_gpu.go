@@ -17,7 +17,14 @@ type AMDGPUCollector struct {
 	gpuAverageUtilizationDesc *prometheus.Desc
 }
 
-// /sys/class/drm/card*/device/mem_busy_percent
+var (
+	// Used in score.go to avoid double scrape
+	SharedGpuUtil float64
+	GPUCheck      bool
+)
+
+// Potential future upgrade
+//sys/class/drm/card*/device/mem_busy_percent
 
 func NewAMDGPUCollector() (*AMDGPUCollector, error) {
 	return &AMDGPUCollector{
@@ -83,6 +90,7 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	stats, err := fs.ClassDRMCardAMDGPUStats()
 	if err != nil {
+		GPUCheck = false
 		return
 	}
 	var totalGpuUtil float64
@@ -132,11 +140,15 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 			float64(card.MemoryVRAMUsed),
 			card.Name, card.UniqueID,
 		)
+
 		gpuUtil := 0.7*float64(card.GPUBusyPercent) + 0.3*((float64(card.MemoryVisibleVRAMUsed)/float64(card.MemoryVRAMSize))*100)
 		totalGpuUtil += gpuUtil
 		gpuCount++
 	}
 	avgGpuUtil := float64(totalGpuUtil) / float64(gpuCount)
+	// Save for use in score.go
+	SharedGpuUtil = avgGpuUtil
+	GPUCheck = true
 
 	ch <- prometheus.MustNewConstMetric(
 		gc.gpuAverageUtilizationDesc,
