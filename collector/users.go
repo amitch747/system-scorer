@@ -66,7 +66,7 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		// Find uid from /proc/pid/status
-		uid := readUID(pid)
+		uid := ReadUID(pid)
 		if uid == "" {
 			continue
 		}
@@ -90,7 +90,7 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		// Find ttys
-		ttys := readTTYs(pid)
+		ttys := ReadTTYs(pid)
 		if len(ttys) == 0 {
 			continue
 		}
@@ -128,7 +128,57 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func readUID(pid string) string {
+// GetActiveUserCount returns the number of unique users with active TTY sessions
+func GetActiveUserCount() int {
+	usernameUID := make(map[string]string)
+	activeUsers := make(map[string]struct{})
+
+	proc, err := os.ReadDir("/proc")
+	if err != nil {
+		return 0
+	}
+
+	for _, entry := range proc {
+		if !entry.IsDir() {
+			continue
+		}
+		pid := entry.Name()
+		if _, err := strconv.Atoi(pid); err != nil {
+			continue
+		}
+
+		uid := ReadUID(pid)
+		if uid == "" {
+			continue
+		}
+
+		stat, err := os.Stat(filepath.Join("/run/user", uid))
+		if err != nil || !stat.IsDir() {
+			continue
+		}
+
+		ttys := ReadTTYs(pid)
+		if len(ttys) == 0 {
+			continue
+		}
+
+		username, ok := usernameUID[uid]
+		if !ok {
+			if userObj, err := user.LookupId(uid); err == nil {
+				username = userObj.Username
+				usernameUID[uid] = username
+			} else {
+				continue
+			}
+		}
+
+		activeUsers[username] = struct{}{}
+	}
+
+	return len(activeUsers)
+}
+
+func ReadUID(pid string) string {
 	data, err := os.ReadFile(filepath.Join("/proc", pid, "status"))
 	if err != nil {
 		return ""
@@ -146,7 +196,7 @@ func readUID(pid string) string {
 	return ""
 }
 
-func readTTYs(pid string) []string {
+func ReadTTYs(pid string) []string {
 	fdDir := filepath.Join("/proc", pid, "fd")
 	entries, err := os.ReadDir(fdDir)
 	if err != nil {
@@ -194,59 +244,4 @@ func readSSHClient(pid string) string {
 		}
 	}
 	return "unknown"
-}
-
-// ls /run/user/ | xargs id -nu
-// look into slurm to get start and end time
-// squeue (login time)
-// idle
-// for processes
-// tty from /user
-
-// Add to users.go
-func GetActiveUserCount() int {
-	usernameUID := make(map[string]string)
-	activeUsers := make(map[string]struct{})
-
-	proc, err := os.ReadDir("/proc")
-	if err != nil {
-		return 0
-	}
-
-	for _, entry := range proc {
-		if !entry.IsDir() {
-			continue
-		}
-		if _, err := strconv.Atoi(entry.Name()); err != nil {
-			continue
-		}
-
-		uid := readUID(entry.Name())
-		if uid == "" {
-			continue
-		}
-
-		if stat, err := os.Stat(filepath.Join("/run/user", uid)); err != nil || !stat.IsDir() {
-			continue
-		}
-
-		ttys := readTTYs(entry.Name())
-		if len(ttys) == 0 {
-			continue
-		}
-
-		username, ok := usernameUID[uid]
-		if !ok {
-			if userObj, err := user.LookupId(uid); err == nil {
-				username = userObj.Username
-				usernameUID[uid] = username
-			} else {
-				continue
-			}
-		}
-
-		activeUsers[username] = struct{}{}
-	}
-
-	return len(activeUsers)
 }

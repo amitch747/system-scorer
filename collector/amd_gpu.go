@@ -64,8 +64,8 @@ func NewAMDGPUCollector() (*AMDGPUCollector, error) {
 			nil,
 		),
 		gpuAverageUtilizationDesc: prometheus.NewDesc(
-			"syscore_gpu_average_utilization_percent",
-			"System average of gpu utilization",
+			"syscore_gpu_avg_util",
+			"Average percentage of gpu utilization (0-100)",
 			nil,
 			nil,
 		),
