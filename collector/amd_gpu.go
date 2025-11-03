@@ -20,8 +20,9 @@ type AMDGPUCollector struct {
 // Used in score.go to avoid double scrape
 var SharedGpuUtil float64
 
-// Potential future upgrade
-//sys/class/drm/card*/device/mem_busy_percent
+// Potential future upgrades
+// /sys/class/drm/card*/device/mem_busy_percent
+// /sys/kernel/kfd
 
 func NewAMDGPUCollector() (*AMDGPUCollector, error) {
 	return &AMDGPUCollector{

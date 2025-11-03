@@ -48,13 +48,13 @@ $$
 
 ## Setup (WIP)
 ### Create systemd service
-`sudo nano /etc/systemd/system/system-scorer.service`
+`sudo nano /etc/systemd/system/prometheus-score-exporter.service`
 ```
 [Unit]
-Description=System Scorer Prometheus Exporter
-After=network.target
+Description=Prometheus Utilization Score Exporter
 
 [Service]
+type=simple
 ExecStart=/usr/local/bin/system-scorer
 WorkingDirectory=/usr/local/bin
 # Optional
