@@ -95,6 +95,12 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 
 	// Export metrics for each card
 	for _, card := range stats {
+
+		// Edge case where we have no physical GPU
+		if card.MemoryVRAMSize == 0 {
+			continue
+		}
+
 		ch <- prometheus.MustNewConstMetric(
 			gc.gpuBusyPercentDesc,
 			prometheus.GaugeValue,
@@ -142,6 +148,11 @@ func (gc *AMDGPUCollector) Collect(ch chan<- prometheus.Metric) {
 		totalGpuUtil += gpuUtil
 		gpuCount++
 	}
+
+	if gpuCount == 0 {
+		return
+	}
+
 	avgGpuUtil := float64(totalGpuUtil) / float64(gpuCount)
 	// Save for use in score.go
 	SharedGpuUtil = (avgGpuUtil / 100)
