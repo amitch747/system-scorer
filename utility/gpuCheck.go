@@ -27,6 +27,21 @@ func GetGPUConfig() (bool, int) {
 			gpuCount = 0
 			return
 		}
+
+		// Edge case check. Ensure we have actual GPU hardware
+		validCount := 0
+		for _, card := range gpuStats {
+			if card.MemoryVRAMSize > 0 {
+				validCount++
+			}
+		}
+
+		if validCount == 0 {
+			gpuNode = false
+			gpuCount = 0
+			return
+		}
+
 		gpuNode = true
 		gpuCount = len(gpuStats)
 	})
