@@ -22,12 +22,6 @@ Weights (GPU nodes): $\large w_{GPU}=0.34, w_{CPU}=0.20, w_{mem}=0.10, w_{disk}=
 
 Weights (CPU nodes): $\large w_{GPU}=0.00, w_{CPU}=0.54, w_{mem}=0.10, w_{disk}=0.01, w_{net}=0.01, w_{user}=0.34$
 
-### Bottleneck Score
-
-$$
-\huge utilization_{bottleneck} = 100 \times \max(c, m, d, g, n, u)
-$$
-
 ## Metrics (WIP)
 ### GPU
 - `gpu_busy_percent`
