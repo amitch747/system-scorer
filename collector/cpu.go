@@ -15,11 +15,14 @@ type cpuTimes struct {
 	user, nice, system, idle, iowait, irq, softirq, steal uint64
 }
 
-var prevCPUTimes cpuTimes
+var (
+	prevCPUTimes  cpuTimes // Times from scrape 15s before current
+	SharedCPUExec float64  // Used in score.go to avoid double scrape
+)
 
 type CPUCollector struct {
-	cpuCountDesc          *prometheus.Desc
-	cpuExecPercentageDesc *prometheus.Desc
+	cpuCountDesc *prometheus.Desc
+	cpuExecDesc  *prometheus.Desc
 }
 
 func NewCPUCollector() *CPUCollector {
@@ -30,9 +33,9 @@ func NewCPUCollector() *CPUCollector {
 			nil,
 			nil,
 		),
-		cpuExecPercentageDesc: prometheus.NewDesc(
-			"syscore_cpu_exec_percentage",
-			"15s percentage of CPU time spent not in idle or iowait",
+		cpuExecDesc: prometheus.NewDesc(
+			"syscore_cpu_exec",
+			"15s percentage of CPU time spent not in idle or iowait (0-100)",
 			nil,
 			nil,
 		),
@@ -55,14 +58,16 @@ func (cc *CPUCollector) Collect(ch chan<- prometheus.Metric) {
 	if err != nil {
 		return
 	}
-	cpuExecPercentage := calcCPUExecPercentage(prevCPUTimes, currCPUTimes)
+	cpuExec := calcCPUExec(prevCPUTimes, currCPUTimes)
+	// Save exec for use in score.go
+	SharedCPUExec = cpuExec
 	// Update for next scrape
 	prevCPUTimes = currCPUTimes
-	// Collect cpuExecPercentage
+	// Collect cpuExec as percentage (0-100) for Prometheus
 	ch <- prometheus.MustNewConstMetric(
-		cc.cpuExecPercentageDesc,
+		cc.cpuExecDesc,
 		prometheus.GaugeValue,
-		float64(cpuExecPercentage),
+		cpuExec*100,
 	)
 }
 
@@ -100,7 +105,7 @@ func (cpuT cpuTimes) CalcTotalCPUTime() uint64 {
 	return (cpuT.user + cpuT.nice + cpuT.system + cpuT.idle + cpuT.iowait + cpuT.irq + cpuT.softirq + cpuT.steal)
 }
 
-func calcCPUExecPercentage(prev, curr cpuTimes) float64 {
+func calcCPUExec(prev, curr cpuTimes) float64 {
 	// First need total time passed
 	totalPrev := prev.CalcTotalCPUTime()
 	totalCurr := curr.CalcTotalCPUTime()
@@ -111,5 +116,6 @@ func calcCPUExecPercentage(prev, curr cpuTimes) float64 {
 	}
 	// idleTime is idle AND iowait
 	idleTime := float64((curr.idle - prev.idle) + (curr.iowait - prev.iowait))
-	return 100 * (1 - idleTime/totalDelta)
+	// Return as 0-1 for internal use
+	return 1 - idleTime/totalDelta
 }

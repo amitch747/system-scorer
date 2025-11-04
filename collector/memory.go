@@ -21,6 +21,8 @@ type memCollector struct {
 	memPressureDesc *prometheus.Desc
 }
 
+var SharedMemUsed float64
+
 func NewMemCollector() *memCollector {
 	return &memCollector{
 		memUsageDesc: prometheus.NewDesc(
@@ -43,7 +45,7 @@ func NewMemCollector() *memCollector {
 		),
 		memPressureDesc: prometheus.NewDesc(
 			"syscore_mem_pressure",
-			"Weighted memory pressure index (usage + swap + commit)",
+			"[Experimental] Weighted memory pressure index (usage + swap + commit)",
 			nil,
 			nil,
 		),
@@ -65,6 +67,9 @@ func (mc *memCollector) Collect(ch chan<- prometheus.Metric) {
 	if mInfo.memTotal > 0 {
 		memUsed = float64(mInfo.memTotal-mInfo.memAvailable) / float64(mInfo.memTotal)
 	}
+	// Save for use in score.go
+	SharedMemUsed = memUsed
+
 	ch <- prometheus.MustNewConstMetric(
 		mc.memUsageDesc,
 		prometheus.GaugeValue,
