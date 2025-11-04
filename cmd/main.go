@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 
@@ -10,6 +11,10 @@ import (
 )
 
 func main() {
+	// CL flag
+	listenAddr := flag.String("web.listen-address", ":9110", "Metrics port")
+	flag.Parse()
+
 	// Create registry
 	reg := prometheus.NewRegistry()
 
@@ -30,5 +35,5 @@ func main() {
 	// Expose metrics
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-	log.Fatal(http.ListenAndServe((":8081"), mux))
+	log.Fatal(http.ListenAndServe(*listenAddr, mux))
 }

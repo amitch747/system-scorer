@@ -48,21 +48,17 @@ $$
 
 ## Setup (WIP)
 ### Create systemd service
-`sudo nano /etc/systemd/system/system-scorer.service`
+`sudo nano /etc/systemd/system/prometheus-score-exporter.service`
 ```
 [Unit]
-Description=System Scorer Prometheus Exporter
-After=network.target
+Description=Prometheus Utilization Score Exporter
 
 [Service]
-ExecStart=/usr/local/bin/system-scorer
+Type=simple
+ExecStart=/usr/local/bin/prometheus-score-exporter
 WorkingDirectory=/usr/local/bin
 # Optional
-EnvironmentFile=-/etc/system-scorer/env.conf
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
+EnvironmentFile=-/etc/prometheus-score-exporter/env.conf
 
 [Install]
 WantedBy=multi-user.target
@@ -70,22 +66,22 @@ WantedBy=multi-user.target
 
 ### Build binary and start service
 
-`go build -o system-scorer ./cmd && sudo mv system-scorer /usr/local/bin/`
+`go build -o prometheus-score-exporter ./cmd && sudo mv prometheus-score-exporter /usr/local/bin/`
 
-`sudo systemctl restart system-scorer`
+`sudo systemctl restart prometheus-score-exporter`
 
 
 ## Viewing  
 ### Local
-`curl http://localhost:8081/metrics`
+`curl http://localhost:9110/metrics`
 
 ### Prometheus
 - Update `sudo nano /etc/prometheus/prometheus.yml`
 ```
 scrape_configs:
-  - job_name: 'system_scraper'
+  - job_name: 'score-exporter'
     static_configs:
-      - targets: ['localhost:8081'] 
+      - targets: ['localhost:9110'] 
 ```
 
 ```

@@ -85,10 +85,12 @@ func (sc *scoreCollector) Collect(ch chan<- prometheus.Metric) {
 	// Scale utilization values
 	scaledUtils := utilScaling(gpuUtil, cpuUtil, memUtil, ioUtil, netUtil, hasGPU)
 
-	// Export scaled GPU
-	ch <- prometheus.MustNewConstMetric(
-		sc.gpuUtilDesc, prometheus.GaugeValue, scaledUtils.g,
-	)
+	if hasGPU {
+		// Export scaled GPU
+		ch <- prometheus.MustNewConstMetric(
+			sc.gpuUtilDesc, prometheus.GaugeValue, scaledUtils.g,
+		)
+	}
 	// Export scaled CPU
 	ch <- prometheus.MustNewConstMetric(
 		sc.cpuUtilDesc, prometheus.GaugeValue, scaledUtils.c,
