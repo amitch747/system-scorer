@@ -10,9 +10,9 @@ import (
 )
 
 type slurmCollector struct {
-	slurmStateDesc     *prometheus.Desc
-	slurmAllocatedDesc *prometheus.Desc
-	slurmJobCountDesc  *prometheus.Desc
+	slurmStateDesc    *prometheus.Desc
+	slurmJobCountDesc *prometheus.Desc
+	slurmReservedDesc *prometheus.Desc
 }
 
 func NewSlurmCollector() *slurmCollector {
@@ -26,6 +26,12 @@ func NewSlurmCollector() *slurmCollector {
 		slurmJobCountDesc: prometheus.NewDesc(
 			"syscore_slurm_job_count",
 			"Number of active jobs on this node",
+			nil,
+			nil,
+		),
+		slurmReservedDesc: prometheus.NewDesc(
+			"syscore_slurm_reserved",
+			"Binary indicator if node is reserved",
 			nil,
 			nil,
 		),
@@ -43,6 +49,8 @@ func (sc *slurmCollector) Collect(ch chan<- prometheus.Metric) {
 
 	jobCount := getActiveJobCount(hostname)
 
+	isReserved := getNodeReservationStatus(hostname)
+
 	ch <- prometheus.MustNewConstMetric(
 		sc.slurmStateDesc,
 		prometheus.GaugeValue,
@@ -54,6 +62,12 @@ func (sc *slurmCollector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		float64(jobCount),
 	)
+	ch <- prometheus.MustNewConstMetric(
+		sc.slurmReservedDesc,
+		prometheus.GaugeValue,
+		float64(isReserved),
+	)
+
 }
 
 func getShortHostname() string {
@@ -97,4 +111,32 @@ func getActiveJobCount(hostname string) int {
 		}
 	}
 	return count
+}
+
+func getNodeReservationStatus(hostname string) int64 {
+	cmd := exec.Command("scontrol", "show", "reservation", "-o")
+	output, err := cmd.Output()
+	if err != nil {
+		return 0
+	}
+
+	outputStr := string(output)
+	lines := strings.Split(outputStr, "\n")
+
+	// ensure "node1" doesn't match "node10"
+	hostnamePattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(hostname) + `\b`)
+
+	for _, line := range lines {
+		// Check if specific hostname appears
+		if !hostnamePattern.MatchString(line) {
+			continue
+		}
+
+		// if !strings.Contains(line, "State=ACTIVE") {
+		// 	continue // Node has inactive reservation
+		// }
+
+		return 1
+	}
+	return 0
 }
