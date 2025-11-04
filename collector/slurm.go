@@ -23,12 +23,6 @@ func NewSlurmCollector() *slurmCollector {
 			[]string{"state"},
 			nil,
 		),
-		slurmAllocatedDesc: prometheus.NewDesc(
-			"syscore_slurm_allocated",
-			"Binary indicator if node has active jobs or allocations (1=allocated, 0=idle)",
-			nil,
-			nil,
-		),
 		slurmJobCountDesc: prometheus.NewDesc(
 			"syscore_slurm_job_count",
 			"Number of active jobs on this node",
@@ -49,22 +43,11 @@ func (sc *slurmCollector) Collect(ch chan<- prometheus.Metric) {
 
 	jobCount := getActiveJobCount(hostname)
 
-	// ALLOCATED, MIXED or jobs means in use
-	isAllocated := 0.0
-	if state == "ALLOCATED" || state == "MIXED" || state == "COMPLETING" || jobCount > 0 {
-		isAllocated = 1.0
-	}
-
 	ch <- prometheus.MustNewConstMetric(
 		sc.slurmStateDesc,
 		prometheus.GaugeValue,
 		1.0,
 		state,
-	)
-	ch <- prometheus.MustNewConstMetric(
-		sc.slurmAllocatedDesc,
-		prometheus.GaugeValue,
-		isAllocated,
 	)
 	ch <- prometheus.MustNewConstMetric(
 		sc.slurmJobCountDesc,
