@@ -1,0 +1,14 @@
+[Unit]
+Description=Prometheus Utilization Score Exporter
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/etc/default/prometheus-score-exporter
+ExecStart=/usr/local/bin/prometheus-score-exporter $OPTIONS
+WorkingDirectory=/usr/local/bin
+
+
+[Install]
+WantedBy=multi-user.targetW

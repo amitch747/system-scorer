@@ -1,2 +1,6 @@
 .cline_storage
 
+# Added by goreleaser init:
+dist/
+
+.env
