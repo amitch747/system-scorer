@@ -1,7 +1,9 @@
 package collector
 
 import (
+	"log"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -50,9 +52,13 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 	sessionSet := make(map[string]struct{})
 	userSessionCount := make(map[string]int)
 
+	var permissionErrors int
+	var processedPIDs int
+
 	// Read all processes
 	proc, err := os.ReadDir("/proc")
 	if err != nil {
+		log.Printf("ERROR: Failed to read /proc: %v", err)
 		return
 	}
 
@@ -68,8 +74,11 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		// Find uid from /proc/pid/status
-		uid := readUID(pid)
+		uid, uidErr := readUID(pid)
 		if uid == "" {
+			if uidErr != nil && os.IsPermission(uidErr) {
+				permissionErrors++
+			}
 			continue
 		}
 
@@ -83,22 +92,32 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		// Find username
 		username, ok := usernameUID[uid]
 		if !ok {
+			// Try built-in lookup first (works for local users)
 			if userObj, err := user.LookupId(uid); err == nil {
 				username = userObj.Username
-				usernameUID[uid] = username
 			} else {
-				continue
+				// Fall back to getent for SSSD/LDAP users
+				username = lookupUsernameViaGetent(uid)
 			}
+			usernameUID[uid] = username
 		}
 
 		// Find ttys
-		ttys := readTTYs(pid)
+		ttys, ttyErr := readTTYs(pid)
 		if len(ttys) == 0 {
+			if ttyErr != nil && os.IsPermission(ttyErr) {
+				permissionErrors++
+			}
 			continue
 		}
 
 		// Find SSH client IP
-		ip := readSSHClient(pid)
+		ip, ipErr := readSSHClient(pid)
+		if ipErr != nil && os.IsPermission(ipErr) {
+			permissionErrors++
+		}
+
+		processedPIDs++
 
 		// Merge pids from same user sessions
 		for _, tty := range ttys {
@@ -120,6 +139,13 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 		}
 	}
 
+	// Log summary of collection
+	if permissionErrors > 0 {
+		log.Printf("WARNING: User collector encountered %d permission errors. Service may need elevated privileges.", permissionErrors)
+		log.Printf("INFO: Successfully processed %d PIDs, found %d users with %d total sessions",
+			processedPIDs, len(userSessionCount), len(sessionSet))
+	}
+
 	SharedUserCount = float64(len(userSessionCount))
 
 	for user, count := range userSessionCount {
@@ -132,29 +158,29 @@ func (uc *userCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func readUID(pid string) string {
+func readUID(pid string) (string, error) {
 	data, err := os.ReadFile(filepath.Join("/proc", pid, "status"))
 	if err != nil {
-		return ""
+		return "", err
 	}
 
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "Uid:") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
-				return fields[1]
+				return fields[1], nil
 			}
 			break
 		}
 	}
-	return ""
+	return "", nil
 }
 
-func readTTYs(pid string) []string {
+func readTTYs(pid string) ([]string, error) {
 	fdDir := filepath.Join("/proc", pid, "fd")
 	entries, err := os.ReadDir(fdDir)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	// Mimics the behaviour of a set (Why does Go not have sets)
 	seen := make(map[string]struct{})
@@ -179,13 +205,13 @@ func readTTYs(pid string) []string {
 			}
 		}
 	}
-	return ttys
+	return ttys, nil
 }
 
-func readSSHClient(pid string) string {
+func readSSHClient(pid string) (string, error) {
 	data, err := os.ReadFile(filepath.Join("/proc", pid, "environ"))
 	if err != nil {
-		return "unknown"
+		return "unknown", err
 	}
 	// proc/pid/environ is null seperated
 	for _, v := range strings.Split(string(data), "\x00") {
@@ -193,9 +219,30 @@ func readSSHClient(pid string) string {
 			v := strings.TrimPrefix(v, "SSH_CONNECTION=")
 			fields := strings.Fields(v)
 			if len(fields) > 1 {
-				return fields[0]
+				return fields[0], nil
 			}
 		}
 	}
-	return "unknown"
+	return "unknown", nil
+}
+
+// lookupUsernameViaGetent uses getent to lookup username via NSS (SSSD/LDAP/NIS)
+// This works even in statically compiled binaries where user.LookupId() fails
+func lookupUsernameViaGetent(uid string) string {
+	cmd := exec.Command("getent", "passwd", uid)
+	output, err := cmd.Output()
+	if err != nil {
+		// getent failed, fall back to UID
+		return uid
+	}
+
+	// Parse "username:*:uid:gid:gecos:home:shell"
+	line := strings.TrimSpace(string(output))
+	fields := strings.Split(line, ":")
+	if len(fields) > 0 && fields[0] != "" {
+		return fields[0]
+	}
+
+	// Parsing failed, fall back to UID
+	return uid
 }

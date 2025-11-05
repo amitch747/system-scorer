@@ -19,25 +19,13 @@ $$
 $$
 
 Weights (GPU nodes): $\large w_{GPU}=0.34, w_{CPU}=0.20, w_{mem}=0.10, w_{disk}=0.01, w_{net}=0.01, w_{user}=0.34$
-
 Weights (CPU nodes): $\large w_{GPU}=0.00, w_{CPU}=0.54, w_{mem}=0.10, w_{disk}=0.01, w_{net}=0.01, w_{user}=0.34$
 
-### Bottleneck Score
-
-$$
-\huge utilization_{bottleneck} = 100 \times \max(c, m, d, g, n, u)
-$$
 
 ## Metrics (WIP)
 ### GPU
 - `gpu_busy_percent`
-
 ### CPU 
-- `cpu_exec`
-  - Percentage of scrape interval (15s default) of CPU time spent not in `idle` or `iowait` (0-100)
-### Users (WIP)
-- `what_user_sessions_currently_active`
-- `what_each_session_currently_active`
 - `cpu_exec`
   - Percentage of scrape interval (15s default) of CPU time spent not in `idle` or `iowait` (0-100)
 ### Users (WIP)
@@ -47,89 +35,6 @@ $$
 - `mem_usage`
   - Percentage of physical memory in use
 ### I/O 
-### I/O 
 - `io_time`
 ### Network 
 - `net_saturation_percentage`
-### Network 
-- `net_saturation_percentage`
-
-## Setup (WIP)
-## Setup (WIP)
-### Create systemd service
-`sudo nano /etc/systemd/system/prometheus-score-exporter.service`
-`sudo nano /etc/systemd/system/prometheus-score-exporter.service`
-```
-[Unit]
-Description=Prometheus Utilization Score Exporter
-Description=Prometheus Utilization Score Exporter
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/prometheus-score-exporter
-Type=simple
-ExecStart=/usr/local/bin/prometheus-score-exporter
-WorkingDirectory=/usr/local/bin
-# Optional
-EnvironmentFile=-/etc/prometheus-score-exporter/env.conf
-EnvironmentFile=-/etc/prometheus-score-exporter/env.conf
-
-[Install]
-WantedBy=multi-user.target
-```
-
-### Build binary and start service
-
-`go build -o prometheus-score-exporter ./cmd && sudo mv prometheus-score-exporter /usr/local/bin/`
-`go build -o prometheus-score-exporter ./cmd && sudo mv prometheus-score-exporter /usr/local/bin/`
-
-`sudo systemctl restart prometheus-score-exporter`
-`sudo systemctl restart prometheus-score-exporter`
-
-
-## Viewing  
-### Local
-`curl http://localhost:9110/metrics`
-`curl http://localhost:9110/metrics`
-
-### Prometheus
-- Update `sudo nano /etc/prometheus/prometheus.yml`
-- Update `sudo nano /etc/prometheus/prometheus.yml`
-```
-scrape_configs:
-  - job_name: 'score-exporter'
-  - job_name: 'score-exporter'
-    static_configs:
-      - targets: ['localhost:9110'] 
-      - targets: ['localhost:9110'] 
-```
-
-```
-sudo systemctl daemon-reload
-sudo systemctl restart prometheus
-sudo systemctl status prometheus
-```
-http://localhost:9090/classic/targets
-
-### Grafana
-https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/
-https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/
-
-```
-
-
-sudo apt update
-sudo apt install grafana
-
-sudo systemctl enable grafana-server
-sudo systemctl start grafana-server
-sudo systemctl status grafana-server
-```
-- Default credentials will be admin/admin
-- Go to Settings -> Data sources -> Add data source -> Prometheus
-- URL: http://localhost:9090
-- Click save and test
-
-- Grafana will be at http://localhost:3000
-
-- Grafana will be at http://localhost:3000
